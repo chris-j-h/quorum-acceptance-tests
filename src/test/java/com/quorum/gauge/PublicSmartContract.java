@@ -19,6 +19,7 @@
 
 package com.quorum.gauge;
 
+import com.quorum.gauge.common.QuorumNetworkProperty;
 import com.quorum.gauge.common.QuorumNode;
 import com.quorum.gauge.common.RetryWithDelay;
 import com.quorum.gauge.core.AbstractSpecImplementation;
@@ -120,21 +121,21 @@ public class PublicSmartContract extends AbstractSpecImplementation {
     }
 
     @Step("<node> has received <expectedTxCount> transactions which contain <expectedEventCount> log events in total")
-    public void verifyLogEvents(QuorumNode node, int expectedTxCount, int expectedEventCount) {
+    public void verifyLogEvents(QuorumNetworkProperty.Node node, int expectedTxCount, int expectedEventCount) {
         List<TransactionReceipt> originalReceipts = (List<TransactionReceipt>) DataStoreFactory.getScenarioDataStore().get("receipts");
 
         List<Observable<TransactionReceipt>> receiptsInNode = new ArrayList<>();
         Scheduler scheduler = threadLocalDelegateScheduler(expectedTxCount);
         for (TransactionReceipt r : originalReceipts) {
-            receiptsInNode.add(transactionService.getTransactionReceipt(node, r.getTransactionHash())
+            receiptsInNode.add(Observable.just(transactionService.pollTransactionReceipt(node, r.getTransactionHash()))
                     .map(tr -> {
-                        if (tr.getTransactionReceipt().isPresent()) {
-                            return tr.getTransactionReceipt().get();
+                        if (tr.isPresent()) {
+                            return tr.get();
                         } else {
                             throw new RuntimeException("retry");
                         }
                     })
-                    .retryWhen(new RetryWithDelay(20, 3000))
+                    .retryWhen(new RetryWithDelay(2, 3000))
                     .subscribeOn(scheduler));
         }
 
