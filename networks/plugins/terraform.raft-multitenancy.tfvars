@@ -20,3 +20,4 @@ override_named_account_allocation = {
   0 = ["JPM_ACC1", "JPM_ACC2", "GS_ACC1", "GS_ACC3"]
   1 = ["GS_ACC2", "DB_ACC1"]
 }
+enable_privacy_marker_tx = { block = 0, enabled = true }
