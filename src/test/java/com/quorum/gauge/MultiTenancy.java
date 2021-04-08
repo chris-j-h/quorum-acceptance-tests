@@ -732,7 +732,7 @@ public class MultiTenancy extends AbstractSpecImplementation {
                 assertThatThrownBy(() -> contractService.readSimpleContractValue(node, existingContract.getContractAddress())
                     .doOnTerminate(Context::removeAccessToken)
                     .blockingSubscribe()
-                ).as(clientName).hasMessageContaining("not authorized");
+                ).as(clientName).hasMessageMatching(".*(not authorized|Empty value \\(0x\\) returned from contract).*");
             });
     }
 
