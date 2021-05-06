@@ -56,19 +56,19 @@ variable "besu" {
   type = object({
     container = object({
       image = object({ name = string, local = bool })
-      port  = object({ http = number, ws = number,graphql = number, p2p = number })
+      port  = object({ http = number, ws = number, graphql = number, p2p = number })
     })
     host = object({
-      port = object({ http_start = number,ws_start = number,graphql_start = number })
+      port = object({ http_start = number, ws_start = number, graphql_start = number })
     })
   })
   default = {
     container = {
       image = { name = "hyperledger/besu:latest", local = false }
-      port  = { http = 8545, ws= 8546, graphql= 8547, p2p= 30303 }
+      port  = { http = 8545, ws = 8546, graphql = 8547, p2p = 30303 }
     }
     host = {
-      port = { http_start = 23000 , ws_start= 23100, graphql_start= 23200 }
+      port = { http_start = 23000, ws_start = 23100, graphql_start = 23200 }
     }
   }
   description = "besu Docker container configuration "

@@ -1,4 +1,4 @@
-consensus    = "raft"
+consensus = "raft"
 plugins = {
   security = {
     name       = "quorum-security-plugin-enterprise"
@@ -7,7 +7,7 @@ plugins = {
   }
 }
 
-enable_multitenancy = true
+enable_multitenancy  = true
 privacy_enhancements = { block = 0, enabled = true }
 
 # this is to setup the TM keys allocation per acceptance tests requirement

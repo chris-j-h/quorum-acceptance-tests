@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     quorum = {
-      source = "ConsenSys/quorum"
+      source  = "ConsenSys/quorum"
       version = "0.2.0"
     }
   }
@@ -57,9 +57,9 @@ quorum:
   nodes:
 %{for i in data.null_data_source.meta[*].inputs.idx~}
     ${format("Node%d:", i + 1)}
-%{ if var.concensus == "istanbul" ~}
+%{if var.concensus == "istanbul"~}
       istanbul-validator-id: "${quorum_bootstrap_node_key.nodekeys-generator[i].istanbul_address}"
-%{ endif ~}
+%{endif~}
       enode-url: ${local.enode_urls[i]}
       account-aliases:
 %{for idx, k in local.named_accounts_alloc[i]~}

@@ -85,14 +85,14 @@ resource "local_file" "genesis-file" {
       "eip155Block": 0,
       "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "eip158Block": 0,
-%{if var.quorum_precompiles_v1.enabled ~}
+%{if var.quorum_precompiles_v1.enabled~}
       "quorumPrecompilesV1Block": ${var.quorum_precompiles_v1.block},
 %{endif~}
-%{if var.permission_qip714Block.enabled ~}
+%{if var.permission_qip714Block.enabled~}
       "qip714Block": ${var.permission_qip714Block.block},
 %{endif~}
       "isQuorum": true,
-%{if var.privacy_enhancements.enabled ~}
+%{if var.privacy_enhancements.enabled~}
       "privacyEnhancementsBlock": ${var.privacy_enhancements.block},
 %{endif~}
 %{if var.concensus == "istanbul"~}
@@ -124,8 +124,8 @@ EOF
 }
 
 resource "local_file" "nodekey-file" {
-    filename = format("%s/nodekeys-tmp.json", quorum_bootstrap_network.this.network_dir_abs)
-    content  = <<-EOF
+  filename = format("%s/nodekeys-tmp.json", quorum_bootstrap_network.this.network_dir_abs)
+  content  = <<-EOF
     {
     ${join(",", quorum_bootstrap_node_key.nodekeys-generator[*].hex_node_id)}
 }
@@ -157,9 +157,9 @@ resource "local_file" "passwords" {
 }
 
 resource "local_file" "genesisfile" {
-    count    = local.number_of_nodes
-    filename = format("%s/%s", quorum_bootstrap_data_dir.datadirs-generator[count.index].data_dir_abs, local.genesis_file)
-    content  = quorum_bootstrap_data_dir.datadirs-generator[count.index].genesis
+  count    = local.number_of_nodes
+  filename = format("%s/%s", quorum_bootstrap_data_dir.datadirs-generator[count.index].data_dir_abs, local.genesis_file)
+  content  = quorum_bootstrap_data_dir.datadirs-generator[count.index].genesis
 }
 
 resource "local_file" "tmconfigs-generator" {
@@ -217,7 +217,7 @@ resource "local_file" "tmconfigs-generator" {
     },
     "alwaysSendTo": [],
     "features" : {
-%{if var.privacy_enhancements.enabled ~}
+%{if var.privacy_enhancements.enabled~}
       "enablePrivacyEnhancements" : "true",
 %{endif~}
       "enableRemoteKeyValidation" : "true"

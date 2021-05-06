@@ -12,7 +12,7 @@ variable "tm_networking" {
   type = list(object({
     port = object({
       thirdparty = object({ internal = number, external = number })
-      q2t = object({ internal = number, external = number })
+      q2t        = object({ internal = number, external = number })
       p2p        = number
     })
     ip = object({
@@ -29,7 +29,7 @@ variable "besu_networking" {
       http    = object({ internal = number, external = number })
       ws      = object({ internal = number, external = number })
       graphql = object({ internal = number, external = number })
-      p2p = number
+      p2p     = number
     })
     ip = object({ private = string, public = string })
   }))
@@ -38,8 +38,8 @@ variable "besu_networking" {
 
 variable "ethsigner_networking" {
   type = list(object({
-    port  = object({ internal = number, external = number })
-    ip    = object({ private = string, public = string })
+    port = object({ internal = number, external = number })
+    ip   = object({ private = string, public = string })
   }))
   description = "Networking configuration for `ethsigner` nodes in the network. Number of items must match `besu_networking`"
 }

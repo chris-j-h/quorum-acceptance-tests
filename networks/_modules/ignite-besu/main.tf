@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     quorum = {
-      source = "ConsenSys/quorum"
+      source  = "ConsenSys/quorum"
       version = "0.2.0"
     }
   }
@@ -15,9 +15,9 @@ locals {
   node_dir_prefix           = "node-"
   tm_dir_prefix             = "tm-"
   ethsigner_dir_prefix      = "ethsigner-"
-  keystore_folder             = "keystore"
-  keystore_password_file             = "keystore_password"
-  keystore_password          = "besito1"
+  keystore_folder           = "keystore"
+  keystore_password_file    = "keystore_password"
+  keystore_password         = "besito1"
   genesis_file              = "genesis.json"
   number_of_nodes           = max(length(var.besu_networking), length(var.tm_networking), length(var.ethsigner_networking))
   node_indices              = range(local.number_of_nodes)

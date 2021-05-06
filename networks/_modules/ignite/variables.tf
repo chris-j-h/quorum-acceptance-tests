@@ -6,13 +6,13 @@ variable "network_name" {
 variable "geth_networking" {
   type = list(object({
     port = object({
-      http    = object({ internal = number, external = number })
-      ws      = object({ internal = number, external = number })
-      p2p     = number
-      raft    = number
+      http = object({ internal = number, external = number })
+      ws   = object({ internal = number, external = number })
+      p2p  = number
+      raft = number
     })
     graphql = bool
-    ip = object({ private = string, public = string })
+    ip      = object({ private = string, public = string })
   }))
   description = "Networking configuration for `geth` nodes in the network. Number of items must match `tm_networking`"
 }
@@ -21,7 +21,7 @@ variable "tm_networking" {
   type = list(object({
     port = object({
       thirdparty = object({ internal = number, external = number })
-      q2t = object({ internal = number, external = number })
+      q2t        = object({ internal = number, external = number })
       p2p        = number
     })
     ip = object({
@@ -38,9 +38,9 @@ variable "concensus" {
 }
 
 variable "privacy_enhancements" {
-    type        = object({ block = number, enabled = bool })
-    default     = { block = 0, enabled = false }
-    description = "privacy enhancements state (enabled/disabled) and the block height at which they are enabled"
+  type        = object({ block = number, enabled = bool })
+  default     = { block = 0, enabled = false }
+  description = "privacy enhancements state (enabled/disabled) and the block height at which they are enabled"
 }
 
 variable "permission_qip714Block" {

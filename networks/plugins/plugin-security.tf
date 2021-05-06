@@ -60,7 +60,7 @@ resource "docker_container" "hydra" {
 }
 
 resource "local_file" "security-config" {
-  count    = local.include_security ? var.number_of_nodes : 0
+  count = local.include_security ? var.number_of_nodes : 0
   # file name convention is <plugin_interface_name>-config.json
   # which is being used while writing plugin-settings.json
   filename = format("%s/plugins/security-config.json", module.network.data_dirs[count.index])
