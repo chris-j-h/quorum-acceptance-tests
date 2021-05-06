@@ -85,7 +85,9 @@ resource "local_file" "genesis-file" {
       "eip155Block": 0,
       "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "eip158Block": 0,
-      "quorumPrecompilesV1Block": 0,
+%{if var.quorum_precompiles_v1.enabled ~}
+      "quorumPrecompilesV1Block": ${var.quorum_precompiles_v1.block},
+%{endif~}
 %{if var.permission_qip714Block.enabled ~}
       "qip714Block": ${var.permission_qip714Block.block},
 %{endif~}
