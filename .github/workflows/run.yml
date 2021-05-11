@@ -52,8 +52,7 @@ jobs:
     runs-on: ubuntu-18.04
     outputs:
       output_dir: '${{ steps.prepare.outputs.output_dir }}'
-      output_file: '${{ steps.prepare.outputs.output_file }}'
-      image_file: '${{ steps.prepare.outputs.image_file }}'
+      image_archive_name: '${{ steps.prepare.outputs.image_archive_name }}'
       image_name: '${{ steps.prepare.outputs.image_name }}'
     steps:
       - name: 'Prepare'
@@ -62,8 +61,7 @@ jobs:
           output_dir=${{ runner.temp }}/docker
           mkdir -p $output_dir
           echo "::set-output name=output_dir::$output_dir"
-          echo "::set-output name=output_file::$output_dir/acctests.tar.gz"
-          echo "::set-output name=image_file::acctests.tar"
+          echo "::set-output name=image_archive_name::acctests"
           echo "::set-output name=image_name::quorumengineering/acctests:gh"
       - name: 'Cache docker image'
         id: cache-image
@@ -79,8 +77,8 @@ jobs:
         id: build
         run: |
           docker build -t ${{ steps.prepare.outputs.image_name }} .
-          docker save ${{ steps.prepare.outputs.image_name }} > ${{ steps.prepare.outputs.image_file }}
-          tar cfvz ${{ steps.prepare.outputs.output_file }} ${{ steps.prepare.outputs.image_file }}
+          docker save --output ${{ steps.prepare.outputs.image_archive_name }}.tar ${{ steps.prepare.outputs.image_name }}
+          tar cfvz ${{ steps.prepare.outputs.output_dir }}/${{ steps.prepare.outputs.image_archive_name }}.tar.gz ${{ steps.prepare.outputs.image_archive_name }}.tar
   run:
     # This workflow uses tag expression and its sha256 hash to aggregate test results
     # from each execution. It is important that the job name has tag expression in the
@@ -134,8 +132,8 @@ jobs:
       - name: 'Prepare environment'
         id: setup
         run: |
-          tar xfvz ${{ needs.docker-build.outputs.output_file }}
-          docker load --input ${{ needs.docker-build.outputs.image_file }}
+          tar xfvz ${{ needs.docker-build.outputs.output_dir }}/${{ needs.docker-build.outputs.image_archive_name }}.tar.gz
+          docker load --input ${{ needs.docker-build.outputs.image_archive_name }}.tar
           tagKey=$(echo -n "${{ matrix.tag }}" | shasum --algorithm=256 | awk '{print $1}')
           mvnArg=""
           dockerEnv="--network host -v /var/run/docker.sock:/var/run/docker.sock"
