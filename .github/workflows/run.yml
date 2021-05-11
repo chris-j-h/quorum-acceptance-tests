@@ -124,58 +124,73 @@ jobs:
 #            besu-network: 'true'
     runs-on: ubuntu-18.04
     steps:
+      - name: 'Check out project files'
+        uses: actions/checkout@v2
       - name: 'Download docker image'
         uses: actions/cache@v2
         with:
           path: ${{ needs.docker-build.outputs.output_dir }}
           key: ${{ github.sha }}
-      - name: 'Prepare environment'
+      - name: 'Prepare environment (custom action)'
         id: setup
-        run: |
-          tar xfvz ${{ needs.docker-build.outputs.output_dir }}/${{ needs.docker-build.outputs.image_archive_name }}.tar.gz
-          docker load --input ${{ needs.docker-build.outputs.image_archive_name }}.tar
-          tagKey=$(echo -n "${{ matrix.tag }}" | shasum --algorithm=256 | awk '{print $1}')
-          mvnArg=""
-          dockerEnv="--network host -v /var/run/docker.sock:/var/run/docker.sock"
-          if [ "${{ needs.condition.outputs.use_aws }}" == "true" ]; then
-            infraFolder="networks/_infra/aws-ec2"
-            infraProfile="${{ secrets.AWS_REGION }}"
-            mvnArg="-Dinfra.target=$infraFolder::$infraProfile"
-            dockerEnv="-e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} -e TF_VAR_vpc_id=${{ secrets.AWS_VPC_ID }} -e TF_VAR_public_subnet_id=${{ secrets.AWS_PUBLIC_SUBNET_ID }}"
-            echo "INFRA_FOLDER=$infraFolder" >> $GITHUB_ENV
-            echo "INFRA_PROFILE=$infraProfile" >> $GITHUB_ENV
-          fi
-          dockerEnvFile=${{ runner.temp }}/env.list
-          # now we check if we should use the custom docker images in this repo
-          gitref_path="${{ github.ref }}"
-          gitref_path=${gitref_path/refs\/heads\//} # for refs/heads/my-branch
-          if [[ $gitref_path == dev-* ]]; then
-            echo "${{ github.token }}" | docker login https://docker.pkg.github.com -u ${{ github.repository_owner }} --password-stdin
-            quorum_docker_image="docker.pkg.github.com/${{ github.repository }}/quorum-$gitref_path:develop"
-            tessera_docker_image="docker.pkg.github.com/${{ github.repository }}/tessera-$gitref_path:develop"
-            has_quorum_docker_image=$(docker pull $quorum_docker_image >/dev/null 2>&1; echo $?)
-            has_tessera_docker_image=$(docker pull $tessera_docker_image >/dev/null 2>&1; echo $?)
-            echo "$quorum_docker_image: $has_quorum_docker_image"
-            echo "$tessera_docker_image: $has_tessera_docker_image"
-            if [ $has_quorum_docker_image -eq 0 ]; then
-              echo "::warning ::Using $quorum_docker_image"
-              echo "TF_VAR_quorum_docker_image={name=\"$quorum_docker_image\", local=true}" >> $dockerEnvFile
-              docker pull quorumengineering/quorum:develop
-              docker pull quorumengineering/quorum:latest
-            fi
-            if [ $has_tessera_docker_image -eq 0 ]; then
-              echo "::warning ::Using $tessera_docker_image"
-              echo "TF_VAR_tessera_docker_image={name=\"$tessera_docker_image\", local=true}" >> $dockerEnvFile
-              docker pull quorumengineering/tessera:develop
-              docker pull quorumengineering/tessera:latest
-            fi
-          fi
-          echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ matrix.privacy-enhancements}}}" >> $dockerEnvFile
-          echo "::set-output name=tag::$tagKey"
-          echo "::set-output name=mvnArg::$mvnArg"
-          echo "::set-output name=dockerEnv::$dockerEnv"
-          echo "::set-output name=outputDir::${{ runner.temp }}"
-          echo "::set-output name=dockerEnvFile::$dockerEnvFile"
+        uses: './.github/actions/prepare-test-environment'
+        with:
+            gaugeTag: ${{ matrix.tag }}
+            imageArchiveName: ${{ needs.docker-build.outputs.image_archive_name }}
+            outputDir: ${{ needs.docker-build.outputs.output_dir }}
+            useAWS: ${{ needs.condition.outputs.use_aws }}
+            awsRegion: ${{ secrets.AWS_REGION }}
+            awsAccessKeyId: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            awsSecretAccessKey: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            awsVpcId: ${{ secrets.AWS_VPC_ID }}
+            awsPublicSubnetId: ${{ secrets.AWS_PUBLIC_SUBNET_ID }}
+#      - name: 'Prepare environment'
+#        id: setup
+#        run: |
+#          tar xfvz ${{ needs.docker-build.outputs.output_dir }}/${{ needs.docker-build.outputs.image_archive_name }}.tar.gz
+#          docker load --input ${{ needs.docker-build.outputs.image_archive_name }}.tar
+#          tagKey=$(echo -n "${{ matrix.tag }}" | shasum --algorithm=256 | awk '{print $1}')
+#          mvnArg=""
+#          dockerEnv="--network host -v /var/run/docker.sock:/var/run/docker.sock"
+#          if [ "${{ needs.condition.outputs.use_aws }}" == "true" ]; then
+#            infraFolder="networks/_infra/aws-ec2"
+#            infraProfile="${{ secrets.AWS_REGION }}"
+#            mvnArg="-Dinfra.target=$infraFolder::$infraProfile"
+#            dockerEnv="-e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} -e TF_VAR_vpc_id=${{ secrets.AWS_VPC_ID }} -e TF_VAR_public_subnet_id=${{ secrets.AWS_PUBLIC_SUBNET_ID }}"
+#            echo "INFRA_FOLDER=$infraFolder" >> $GITHUB_ENV
+#            echo "INFRA_PROFILE=$infraProfile" >> $GITHUB_ENV
+#          fi
+#          dockerEnvFile=${{ runner.temp }}/env.list
+#          # now we check if we should use the custom docker images in this repo
+#          gitref_path="${{ github.ref }}"
+#          gitref_path=${gitref_path/refs\/heads\//} # for refs/heads/my-branch
+#          if [[ $gitref_path == dev-* ]]; then
+#            echo "${{ github.token }}" | docker login https://docker.pkg.github.com -u ${{ github.repository_owner }} --password-stdin
+#            quorum_docker_image="docker.pkg.github.com/${{ github.repository }}/quorum-$gitref_path:develop"
+#            tessera_docker_image="docker.pkg.github.com/${{ github.repository }}/tessera-$gitref_path:develop"
+#            has_quorum_docker_image=$(docker pull $quorum_docker_image >/dev/null 2>&1; echo $?)
+#            has_tessera_docker_image=$(docker pull $tessera_docker_image >/dev/null 2>&1; echo $?)
+#            echo "$quorum_docker_image: $has_quorum_docker_image"
+#            echo "$tessera_docker_image: $has_tessera_docker_image"
+#            if [ $has_quorum_docker_image -eq 0 ]; then
+#              echo "::warning ::Using $quorum_docker_image"
+#              echo "TF_VAR_quorum_docker_image={name=\"$quorum_docker_image\", local=true}" >> $dockerEnvFile
+#              docker pull quorumengineering/quorum:develop
+#              docker pull quorumengineering/quorum:latest
+#            fi
+#            if [ $has_tessera_docker_image -eq 0 ]; then
+#              echo "::warning ::Using $tessera_docker_image"
+#              echo "TF_VAR_tessera_docker_image={name=\"$tessera_docker_image\", local=true}" >> $dockerEnvFile
+#              docker pull quorumengineering/tessera:develop
+#              docker pull quorumengineering/tessera:latest
+#            fi
+#          fi
+#          echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ matrix.privacy-enhancements}}}" >> $dockerEnvFile
+#          echo "::set-output name=tag::$tagKey"
+#          echo "::set-output name=mvnArg::$mvnArg"
+#          echo "::set-output name=dockerEnv::$dockerEnv"
+#          echo "::set-output name=outputDir::${{ runner.temp }}"
+#          echo "::set-output name=dockerEnvFile::$dockerEnvFile"
       - name: 'Run tests using ${{ needs.condition.outputs.infra }}'
         continue-on-error: ${{ matrix.besu-network == 'true' }}
         run: |
@@ -189,7 +204,7 @@ jobs:
                 -Pauto \
                 -Dtags="${{ matrix.tag }}" ${{ steps.setup.outputs.mvnArg }} \
                 -Dauto.outputDir=${{ steps.setup.outputs.outputDir }} \
-                -Dauto.jobid=${{ steps.setup.outputs.tag }}
+                -Dauto.jobid=${{ steps.setup.outputs.tagHash }}
       - name: 'Failure info'
         if: ${{ failure() }}
         continue-on-error: ${{ matrix.besu-network == 'true' }}
@@ -222,7 +237,7 @@ jobs:
         continue-on-error: ${{ matrix.besu-network == 'true' }}
         uses: actions/upload-artifact@v2
         with:
-          name: testreport-${{ steps.setup.outputs.tag }}
+          name: testreport-${{ steps.setup.outputs.tagHash }}
           path: ${{ steps.setup.outputs.outputDir }}/*.* # only files not directory
       - name: 'Destroy infrastructure resources if ever created'
         if: always() && needs.condition.outputs.use_aws == 'true'
