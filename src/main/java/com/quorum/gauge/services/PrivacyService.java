@@ -26,6 +26,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class PrivacyService extends AbstractService {
@@ -74,16 +75,23 @@ public class PrivacyService extends AbstractService {
         return matches.get(0);
     }
 
+    public List<String> ids(final List<String> nodeAliases) {
+        return nodeAliases.stream().map(this::id).collect(Collectors.toList());
+    }
+
+    public String id(QuorumNode node, String name) {
+        return getQuorumNodeConfig(node).getPrivacyAddressAliases().get(name);
+    }
+
     public String thirdPartyUrl(QuorumNode node) {
         return getQuorumNodeConfig(node).getThirdPartyUrl();
     }
 
     private QuorumNetworkProperty.Node getQuorumNodeConfig(QuorumNode node) {
-        QuorumNetworkProperty.Node nodeConfig = networkProperty().getNodes().get(node);
+        QuorumNetworkProperty.Node nodeConfig = networkProperty().getNodes().get(node.name());
         if (nodeConfig == null) {
             throw new IllegalArgumentException("Node " + node + " not found in config");
         }
         return nodeConfig;
     }
-
 }

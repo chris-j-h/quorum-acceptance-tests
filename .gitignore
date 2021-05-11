@@ -3,6 +3,7 @@
 
 # IntelliJ project settings
 .idea
+*.iml
 
 # Gauge - log files dir
 logs
@@ -30,6 +31,7 @@ env/travis-*/
 **/.DS_Store
 
 **/.terraform
+**/.terraform.lock.hcl
 **/terraform.d
 **/terraform.tfstate*
 **/build

@@ -2,6 +2,13 @@
 
 variable "network_name" {}
 variable "consensus" {}
+
+variable "privacy_enhancements" {
+    type        = object({ block = number, enabled = bool })
+    default     = { block = 0, enabled = false }
+    description = "privacy enhancements state (enabled/disabled) and the block height at which they are enabled"
+}
+
 variable "output_dir" {
   default = "/tmp"
 }
@@ -34,8 +41,14 @@ variable "exclude_initial_nodes" {
 
 variable "quorum_docker_image" {
   type        = object({ name = string, local = bool })
-  default     = { name = "quorumengineering/quorum:latest", local = false }
+  default     = { name = "quorumengineering/quorum:develop", local = false }
   description = "Local=true indicates that the image is already available locally and don't need to pull from registry"
+}
+
+variable "tessera_docker_image" {
+    type        = object({ name = string, local = bool })
+    default     = { name = "quorumengineering/tessera:develop", local = false }
+    description = "Local=true indicates that the image is already available locally and don't need to pull from registry"
 }
 
 variable "docker_registry" {

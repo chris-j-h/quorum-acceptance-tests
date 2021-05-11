@@ -54,7 +54,7 @@ public class NestedContractService extends AbstractService {
     AccountService accountService;
 
     public Observable<? extends Contract> createC1Contract(int initialValue, QuorumNode source, QuorumNode target) {
-        return createC1Contract(initialValue, source, Arrays.asList(target), Arrays.asList(PrivacyFlag.Legacy));
+        return createC1Contract(initialValue, source, Arrays.asList(target), Arrays.asList(PrivacyFlag.StandardPrivate));
     }
 
     public Observable<? extends Contract> createC1Contract(int initialValue, QuorumNode source, List<QuorumNode> target, List<PrivacyFlag> flags) {
@@ -65,9 +65,7 @@ public class NestedContractService extends AbstractService {
                 address,
                 null,
                 target.stream().map(n -> privacyService.id(n)).collect(Collectors.toList()),
-                flags,
-                DEFAULT_MAX_RETRY,
-                DEFAULT_SLEEP_DURATION_IN_MILLIS);
+                flags);
             return C1.deploy(client,
                 clientTransactionManager,
                 BigInteger.valueOf(0),
@@ -79,13 +77,11 @@ public class NestedContractService extends AbstractService {
     public Observable<? extends Contract> createPublicC1Contract(int initialValue, QuorumNode source) {
         Quorum client = connectionFactory().getConnection(source);
         return accountService.getDefaultAccountAddress(source).flatMap(address -> {
-            ClientTransactionManager clientTransactionManager = new ClientTransactionManager(
+            ClientTransactionManager clientTransactionManager = clientTransactionManager(
                 client,
                 address,
                 null,
-                null,
-                DEFAULT_MAX_RETRY,
-                DEFAULT_SLEEP_DURATION_IN_MILLIS);
+                null);
             return C1.deploy(client,
                 clientTransactionManager,
                 BigInteger.valueOf(0),
@@ -95,7 +91,7 @@ public class NestedContractService extends AbstractService {
     }
 
     public Observable<? extends Contract> createC2Contract(String c1Address, QuorumNode source, QuorumNode target) {
-        return createC2Contract(c1Address, source, Arrays.asList(target), Arrays.asList(PrivacyFlag.Legacy));
+        return createC2Contract(c1Address, source, Arrays.asList(target), Arrays.asList(PrivacyFlag.StandardPrivate));
     }
 
     public Observable<? extends Contract> createC2Contract(String c1Address, QuorumNode source, List<QuorumNode> target, List<PrivacyFlag> flags) {
@@ -106,9 +102,7 @@ public class NestedContractService extends AbstractService {
                 address,
                 null,
                 target.stream().map(n -> privacyService.id(n)).collect(Collectors.toList()),
-                flags,
-                DEFAULT_MAX_RETRY,
-                DEFAULT_SLEEP_DURATION_IN_MILLIS);
+                flags);
             return C2.deploy(client,
                 clientTransactionManager,
                 BigInteger.valueOf(0),
@@ -169,9 +163,7 @@ public class NestedContractService extends AbstractService {
                 address,
                 null,
                 target.stream().map(n -> privacyService.id(n)).collect(Collectors.toList()),
-                flags,
-                DEFAULT_MAX_RETRY,
-                DEFAULT_SLEEP_DURATION_IN_MILLIS);
+                flags);
             return C2.load(contractAddress, client, txManager,
                 BigInteger.valueOf(0),
                 DEFAULT_GAS_LIMIT).restoreFromC1().flowable().toObservable();
@@ -181,13 +173,11 @@ public class NestedContractService extends AbstractService {
     public Observable<TransactionReceipt> updateC1Contract(QuorumNode source, List<QuorumNode> target, String contractAddress, int newValue) {
         Quorum client = connectionFactory().getConnection(source);
         return accountService.getDefaultAccountAddress(source).flatMap(address -> {
-            ClientTransactionManager txManager = new ClientTransactionManager(
+            ClientTransactionManager txManager = clientTransactionManager(
                 client,
                 address,
                 null,
-                target.stream().map(n -> privacyService.id(n)).collect(Collectors.toList()),
-                DEFAULT_MAX_RETRY,
-                DEFAULT_SLEEP_DURATION_IN_MILLIS);
+                target.stream().map(n -> privacyService.id(n)).collect(Collectors.toList()));
             return C1.load(contractAddress, client, txManager,
                 BigInteger.valueOf(0),
                 DEFAULT_GAS_LIMIT).set(BigInteger.valueOf(newValue)).flowable().toObservable();
@@ -202,9 +192,7 @@ public class NestedContractService extends AbstractService {
                 address,
                 null,
                 target.stream().map(n -> privacyService.id(n)).collect(Collectors.toList()),
-                flags,
-                DEFAULT_MAX_RETRY,
-                DEFAULT_SLEEP_DURATION_IN_MILLIS);
+                flags);
             return C2.load(contractAddress, client, txManager,
                 BigInteger.valueOf(0),
                 DEFAULT_GAS_LIMIT).set(BigInteger.valueOf(newValue)).flowable().toObservable();
@@ -228,9 +216,7 @@ public class NestedContractService extends AbstractService {
                 address,
                 null,
                 target.stream().map(n -> privacyService.id(n)).collect(Collectors.toList()),
-                flags,
-                DEFAULT_MAX_RETRY,
-                DEFAULT_SLEEP_DURATION_IN_MILLIS);
+                flags);
             return C1.load(contractAddress, client, txManager,
                 BigInteger.valueOf(0),
                 DEFAULT_GAS_LIMIT).newContractC2(newValue).flowable().toObservable();

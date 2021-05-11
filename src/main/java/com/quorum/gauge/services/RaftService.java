@@ -98,12 +98,12 @@ public class RaftService extends AbstractService {
         String leaderEnode = response.getResult();
         logger.debug("Retrieved leader enode: {}", leaderEnode);
 
-        Map<QuorumNode, Node> nodes = connectionFactory().getNetworkProperty().getNodes();
-        for (QuorumNode nodeId : nodes.keySet()) {
+        Map<String, Node> nodes = connectionFactory().getNetworkProperty().getNodes();
+        for (Node n : nodes.values()) {
             Request<?, NodeInfo> nodeInfoRequest = new Request<>(
                     "admin_nodeInfo",
                     null,
-                    connectionFactory().getWeb3jService(nodeId),
+                    connectionFactory().getWeb3jService(n),
                     NodeInfo.class
             );
 
@@ -111,7 +111,33 @@ public class RaftService extends AbstractService {
             String thisEnode = nodeInfo.getEnode();
             logger.debug("Retrieved enode info: {}", thisEnode);
             if (thisEnode.contains(leaderEnode)) {
-                return nodeId;
+                return connectionFactory().getNetworkProperty().getQuorumNode(n);
+            }
+        }
+
+        throw new RuntimeException("Leader enode not found in peers: " + leaderEnode);
+    }
+
+    /**
+     * Retrieve the enode for the raft leader and compare it with the enode of
+     * all the peers to convert it into a QuorumNode identity.
+     */
+    public QuorumNode getLeaderWithLocalEnodeInfo(QuorumNode node) {
+        Request<String, RaftLeader> request = new Request<>(
+            "raft_leader",
+            null,
+            connectionFactory().getWeb3jService(node),
+            RaftLeader.class);
+        RaftLeader response = request.flowable().toObservable().blockingFirst();
+        String leaderEnode = response.getResult();
+        logger.debug("Retrieved leader enode: {}", leaderEnode);
+
+        Map<String, Node> nodes = connectionFactory().getNetworkProperty().getNodes();
+        for (Map.Entry<String, Node> nodeEntry : nodes.entrySet()) {
+            String thisEnode = nodeEntry.getValue().getEnodeUrl();
+            logger.debug("Retrieved enode info: {}", thisEnode);
+            if (thisEnode.contains(leaderEnode)) {
+                return connectionFactory().getNetworkProperty().getQuorumNode(nodeEntry.getValue());
             }
         }
 

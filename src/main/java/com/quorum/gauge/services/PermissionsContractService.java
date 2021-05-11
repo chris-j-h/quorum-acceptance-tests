@@ -31,8 +31,6 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
 import org.web3j.tx.TransactionManager;
 
-import java.math.BigInteger;
-
 @Service
 public class PermissionsContractService extends AbstractService {
     private static final Logger logger = LoggerFactory.getLogger(PermissionsContractService.class);
@@ -42,17 +40,69 @@ public class PermissionsContractService extends AbstractService {
 
     private org.web3j.tx.ClientTransactionManager getTxManager(QuorumNetworkProperty.Node node, Web3j client){
         String fromAddress = accountService.getDefaultAccountAddress(node).blockingFirst();
-        return new org.web3j.tx.ClientTransactionManager(
-            client,
-            fromAddress,
-            DEFAULT_MAX_RETRY,
-            DEFAULT_SLEEP_DURATION_IN_MILLIS);
+        return vanillaClientTransactionManager(client, fromAddress);
     }
 
-    public Observable<? extends Contract> createPermissionsGenericContracts(QuorumNetworkProperty.Node node, String contractName, String upgrContractAddress) {
+    public Observable<? extends Contract> createPermissionsGenericContracts(QuorumNetworkProperty.Node node, String contractName, String upgrContractAddress, String version) {
         Web3j client = connectionFactory().getWeb3jConnection(node);
 
         TransactionManager transactionManager = getTxManager(node, client);
+
+        if(version.toLowerCase().equals("v2")){
+            switch (contractName.toLowerCase().trim()) {
+                case "accountmanager":
+                    return AccountManager.deploy(
+                        client,
+                        transactionManager,
+                        getPermContractGasProvider(),
+                        upgrContractAddress).flowable().toObservable();
+
+                case "orgmanager":
+                    return OrgManager.deploy(
+                        client,
+                        transactionManager,
+                        getPermContractGasProvider(),
+                        upgrContractAddress).flowable().toObservable();
+
+                case "nodemanager":
+                    return NodeManager.deploy(
+                        client,
+                        transactionManager,
+                        getPermContractGasProvider(),
+                        upgrContractAddress).flowable().toObservable();
+
+                case "rolemanager":
+                    return RoleManager.deploy(
+                        client,
+                        transactionManager,
+                        getPermContractGasProvider(),
+                        upgrContractAddress).flowable().toObservable();
+
+                case "votermanager":
+                    return VoterManager.deploy(
+                        client,
+                        transactionManager,
+                        getPermContractGasProvider(),
+                        upgrContractAddress).flowable().toObservable();
+
+                case "permissionsupgradable":
+                    return PermissionsUpgradable.deploy(
+                        client,
+                        transactionManager,
+                        getPermContractGasProvider(),
+                        accountService.getDefaultAccountAddress(node).blockingFirst()).flowable().toObservable();
+
+                case "permissionsinterface":
+                    return PermissionsInterface.deploy(
+                        client,
+                        transactionManager,
+                        getPermContractGasProvider(),
+                        upgrContractAddress).flowable().toObservable();
+
+                default:
+                    throw new RuntimeException("invalid contract name " + contractName);
+            }
+        }
 
         switch (contractName.toLowerCase().trim()) {
             case "accountmanager":
@@ -110,10 +160,25 @@ public class PermissionsContractService extends AbstractService {
 
     }
 
-    public Observable<? extends Contract> createPermissionsImplementationContract(QuorumNetworkProperty.Node node, String upgrAddr, String orgMgrAddr, String roleMgrAddr, String acctMgrAddr, String voterMgrAddr, String nodeMgrAddr) {
+    public Observable<? extends Contract> createPermissionsImplementationContract(QuorumNetworkProperty.Node node, String upgrAddr, String orgMgrAddr, String roleMgrAddr, String acctMgrAddr, String voterMgrAddr, String nodeMgrAddr, String version) {
         Web3j client = connectionFactory().getWeb3jConnection(node);
         TransactionManager transactionManager = getTxManager(node, client);
-
+        logger.debug("getPermContractDepGasProvider gas limit {}", getPermContractDepGasProvider().getGasLimit(""));
+        logger.debug("getPermContractGasProvider gas limit {}", getPermContractGasProvider().getGasLimit(""));
+        logger.debug("upgr:{} org:{} role:{} acct:{} vote:{} node:{}", upgrAddr, orgMgrAddr, roleMgrAddr, acctMgrAddr, voterMgrAddr, nodeMgrAddr);
+        if(version.toLowerCase().equals("v2")){
+            return PermissionsImplementation.deploy(
+                client,
+                transactionManager,
+                getPermContractDepGasProvider(),
+                upgrAddr,
+                orgMgrAddr,
+                roleMgrAddr,
+                acctMgrAddr,
+                voterMgrAddr,
+                nodeMgrAddr
+            ).flowable().toObservable();
+        }
         return PermissionsImplementation.deploy(
             client,
             transactionManager,
@@ -128,10 +193,16 @@ public class PermissionsContractService extends AbstractService {
 
     }
 
-    public Observable<TransactionReceipt> executeNetworkInit(QuorumNetworkProperty.Node node, String upgrAddr, String interfaceAddr, String implAddress) {
+    public Observable<TransactionReceipt> executeNetworkInit(QuorumNetworkProperty.Node node, String upgrAddr, String interfaceAddr, String implAddress, String version) {
         Web3j client = connectionFactory().getWeb3jConnection(node);
         TransactionManager transactionManager = getTxManager(node, client);
-
+        if(version.toLowerCase().equals("v2")){
+            return PermissionsUpgradable.load(
+                upgrAddr,
+                client, transactionManager,
+                getPermContractGasProvider()
+            ).init(interfaceAddr, implAddress).flowable().toObservable();
+        }
         return PermissionsUpgradable.load(
             upgrAddr,
             client, transactionManager,

@@ -26,20 +26,21 @@ module "helper" {
   number_of_nodes = local.number_of_nodes
   geth = {
     container = {
-      image = var.quorum_docker_image
-      port  = { raft = 50400, p2p = 21000, http = 8545, ws = -1, graphql = 8547 }
+      image   = var.quorum_docker_image
+      port    = { raft = 50400, p2p = 21000, http = 8545, ws = -1 }
+      graphql = true
     }
     host = {
-      port = { http_start = 22000, ws_start = -1, graphql_start = 8001 }
+      port = { http_start = 22000, ws_start = -1 }
     }
   }
   tessera = {
     container = {
-      image = { name = "quorumengineering/tessera:latest", local = false }
-      port  = { thirdparty = 9080, p2p = 9000 }
+      image = var.tessera_docker_image
+      port  = { thirdparty = 9080, p2p = 9000, q2t = 9081, q2t = 9081 }
     }
     host = {
-      port = { thirdparty_start = 9080 }
+      port = { thirdparty_start = 9080, q2t_start = 49081 }
     }
   }
 }
@@ -47,11 +48,12 @@ module "helper" {
 module "network" {
   source = "../_modules/ignite"
 
-  concensus       = module.helper.consensus
-  network_name    = var.network_name
-  geth_networking = module.helper.geth_networking
-  tm_networking   = module.helper.tm_networking
-  output_dir      = var.output_dir
+  concensus            = module.helper.consensus
+  privacy_enhancements = var.privacy_enhancements
+  network_name         = var.network_name
+  geth_networking      = module.helper.geth_networking
+  tm_networking        = module.helper.tm_networking
+  output_dir           = var.output_dir
 }
 
 module "docker" {
@@ -64,11 +66,16 @@ module "docker" {
   ethstats_ip     = module.helper.ethstat_ip
   ethstats_secret = module.helper.ethstats_secret
 
-  network_name         = module.network.network_name
-  network_id           = module.network.network_id
-  node_keys_hex        = module.network.node_keys_hex
-  password_file_name   = module.network.password_file_name
-  geth_datadirs        = var.remote_docker_config == null ? module.network.data_dirs : split(",", join("", null_resource.scp[*].triggers.data_dirs))
-  tessera_datadirs     = var.remote_docker_config == null ? module.network.tm_dirs : split(",", join("", null_resource.scp[*].triggers.tm_dirs))
-  additional_geth_args = local.more_args
+  network_name       = module.network.network_name
+  network_id         = module.network.network_id
+  node_keys_hex      = module.network.node_keys_hex
+  password_file_name = module.network.password_file_name
+  geth_datadirs      = var.remote_docker_config == null ? module.network.data_dirs : split(",", join("", null_resource.scp[*].triggers.data_dirs))
+  tessera_datadirs   = var.remote_docker_config == null ? module.network.tm_dirs : split(",", join("", null_resource.scp[*].triggers.tm_dirs))
+
+  additional_geth_args             = local.more_args
+  additional_geth_container_vol    = var.additional_quorum_container_vol
+  additional_tessera_container_vol = var.additional_tessera_container_vol
+  tessera_app_container_path       = var.tessera_app_container_path
+  accounts_count                   = module.network.accounts_count
 }

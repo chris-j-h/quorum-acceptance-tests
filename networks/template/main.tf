@@ -23,19 +23,20 @@ module "helper" {
   geth = {
     container = {
       image = var.quorum_docker_image
-      port  = { raft = 50400, p2p = 21000, http = 8545, ws = -1, graphql = -1 }
+      port  = { raft = 50400, p2p = 21000, http = 8545, ws = -1 }
+      graphql = false
     }
     host = {
-      port = { http_start = 22000, ws_start = -1, graphql_start = -1 }
+      port = { http_start = 22000, ws_start = -1 }
     }
   }
   tessera = {
     container = {
-      image = { name = "quorumengineering/tessera:latest", local = false }
-      port  = { thirdparty = 9080, p2p = 9000 }
+      image = var.tessera_docker_image
+      port  = { thirdparty = 9080, p2p = 9000,q2t= 9081 }
     }
     host = {
-      port = { thirdparty_start = 9080 }
+      port = { thirdparty_start = 9080,q2t_start= 49081 }
     }
   }
 }
@@ -44,6 +45,7 @@ module "network" {
   source = "../_modules/ignite"
 
   concensus             = module.helper.consensus
+  privacy_enhancements  = var.privacy_enhancements
   network_name          = var.network_name
   geth_networking       = module.helper.geth_networking
   tm_networking         = module.helper.tm_networking
@@ -71,6 +73,7 @@ module "docker" {
   start_quorum          = false
   start_tessera         = false
   additional_geth_args  = var.addtional_geth_args
+  accounts_count        = module.network.accounts_count
 }
 
 data "docker_registry_image" "pull" {

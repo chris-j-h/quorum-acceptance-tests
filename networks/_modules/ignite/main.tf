@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    quorum = {
+      source = "ConsenSys/quorum"
+      version = "0.2.0"
+    }
+  }
+}
+
 locals {
   network_name              = coalesce(var.network_name, random_string.network-name.result)
   generated_dir             = var.output_dir
@@ -6,12 +15,13 @@ locals {
   node_dir_prefix           = "node-"
   tm_dir_prefix             = "tm-"
   password_file             = "password.txt"
+  genesis_file              = "genesis.json"
   number_of_nodes           = max(length(var.geth_networking), length(var.tm_networking))
   node_indices              = range(local.number_of_nodes) // 0-based node index
   // by default we allocate one named key per TM: K0, K1 ... Kn
   // this can be overrriden by the variable
   tm_named_keys_alloc = merge(
-    { for id in local.node_indices : id => [format("K%d", id)] },
+    { for id in local.node_indices : id => [format("UnnamedKey%d", id)] },
     var.override_tm_named_key_allocation
   )
   // by default we allocate one named account per node
@@ -48,7 +58,7 @@ quorum:
 %{for i in data.null_data_source.meta[*].inputs.idx~}
     ${format("Node%d:", i + 1)}
 %{ if var.concensus == "istanbul" ~}
-      istanbul-validator-id: ${quorum_bootstrap_node_key.nodekeys-generator[i].istanbul_address}
+      istanbul-validator-id: "${quorum_bootstrap_node_key.nodekeys-generator[i].istanbul_address}"
 %{ endif ~}
       enode-url: ${local.enode_urls[i]}
       account-aliases:
@@ -57,7 +67,7 @@ quorum:
 %{endfor~}
       privacy-address-aliases:
 %{for k in local.tm_named_keys_alloc[i]~}
-        ${k}: ${element(quorum_transaction_manager_keypair.tm.*.public_key_b64, index(local.tm_named_keys_all, k))}
+        ${k}: "${element(quorum_transaction_manager_keypair.tm.*.public_key_b64, index(local.tm_named_keys_all, k))}"
 %{endfor~}
       url: ${data.null_data_source.meta[i].inputs.nodeUrl}
       third-party-url: ${data.null_data_source.meta[i].inputs.tmThirdpartyUrl}

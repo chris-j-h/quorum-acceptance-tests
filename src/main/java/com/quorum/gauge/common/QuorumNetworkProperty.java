@@ -32,11 +32,11 @@ import java.util.Optional;
 @Component
 @ConfigurationProperties(prefix = "quorum")
 public class QuorumNetworkProperty {
-    private Map<QuorumNode, Node> nodes = new HashMap<>();
+    private Map<String, Node> nodes = new HashMap<>();
     private Map<String, WalletData> wallets = new HashMap<>();
     private String consensus;
     private SocksProxy socksProxy;
-
+    private HashicorpVaultServerProperty hashicorpVaultServer;
     private DockerInfrastructureProperty dockerInfrastructure = new DockerInfrastructureProperty();
     private OAuth2ServerProperty oauth2Server;
 
@@ -48,12 +48,19 @@ public class QuorumNetworkProperty {
         this.socksProxy = socksProxy;
     }
 
-    public Map<QuorumNode, Node> getNodes() {
+    public Map<String, Node> getNodes() {
         return nodes;
     }
 
-    public void setNodes(Map<QuorumNode, Node> nodes) {
+    public void setNodes(Map<String, Node> nodes) {
+        for (Map.Entry<String, Node> entry : nodes.entrySet()) {
+            entry.getValue().setName(entry.getKey());
+        }
         this.nodes = nodes;
+    }
+
+    public QuorumNode getQuorumNode(QuorumNetworkProperty.Node node) {
+        return QuorumNode.valueOf(node.getName());
     }
 
     public Map<String, WalletData> getWallets() {
@@ -64,18 +71,18 @@ public class QuorumNetworkProperty {
         this.wallets = wallets;
     }
 
-    public Map<String, Node> getNodesAsString() {
-        Map<String, Node> converted = new HashMap<>();
-        for (Map.Entry<QuorumNode, Node> quorumNodeNodeEntry : nodes.entrySet()) {
-            converted.put(quorumNodeNodeEntry.getKey().name(), quorumNodeNodeEntry.getValue());
-        }
-        return converted;
-    }
-
     public Node getNode(String nodeName) {
-        Node node = Optional.ofNullable(nodes.get(QuorumNode.valueOf(nodeName))).orElseThrow(() -> new RuntimeException("no such node with name: " + nodeName));
+        Node node = Optional.ofNullable(nodes.get(nodeName)).orElseThrow(() -> new RuntimeException("no such node with name: " + nodeName));
         node.setName(nodeName);
         return node;
+    }
+
+    public HashicorpVaultServerProperty getHashicorpVaultServer() {
+        return hashicorpVaultServer;
+    }
+
+    public void setHashicorpVaultServer(HashicorpVaultServerProperty hashicorpVaultServer) {
+        this.hashicorpVaultServer = hashicorpVaultServer;
     }
 
     public DockerInfrastructureProperty getDockerInfrastructure() {
@@ -327,6 +334,7 @@ public class QuorumNetworkProperty {
         public static class DockerContainerProperty {
             private String quorumContainerId;
             private String tesseraContainerId;
+            private String ethSignerContainerId;
 
             public String getQuorumContainerId() {
                 return quorumContainerId;
@@ -342,6 +350,14 @@ public class QuorumNetworkProperty {
 
             public void setTesseraContainerId(String tesseraContainerId) {
                 this.tesseraContainerId = tesseraContainerId;
+            }
+
+            public Optional<String> getEthSignerContainerId() {
+                return Optional.ofNullable(ethSignerContainerId);
+            }
+
+            public void setEthSignerContainerId(String ethSignerContainerId) {
+                this.ethSignerContainerId = ethSignerContainerId;
             }
         }
     }
@@ -367,6 +383,114 @@ public class QuorumNetworkProperty {
 
         public void setAdminEndpoint(String adminEndpoint) {
             this.adminEndpoint = adminEndpoint;
+        }
+    }
+
+    public static class HashicorpVaultServerProperty {
+        private String url;
+        private String caCertPath;
+        private String clientCertPath;
+        private String clientKeyPath;
+        private String tlsTrustStorePath;
+        private String tlsTrustStorePassword;
+        private String tlsKeyStorePath;
+        private String tlsKeyStorePassword;
+        private String authToken;
+        private Map<String, NodeAcctDirData> nodeAcctDirs;
+
+        public HashicorpVaultServerProperty() {
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public String getCaCertPath() {
+            return caCertPath;
+        }
+
+        public void setCaCertPath(String caCertPath) {
+            this.caCertPath = caCertPath;
+        }
+
+        public String getClientCertPath() {
+            return clientCertPath;
+        }
+
+        public void setClientCertPath(String clientCertPath) {
+            this.clientCertPath = clientCertPath;
+        }
+
+        public String getClientKeyPath() {
+            return clientKeyPath;
+        }
+
+        public void setClientKeyPath(String clientKeyPath) {
+            this.clientKeyPath = clientKeyPath;
+        }
+
+        public String getTlsTrustStorePath() {
+            return tlsTrustStorePath;
+        }
+
+        public void setTlsTrustStorePath(String tlsTrustStorePath) {
+            this.tlsTrustStorePath = tlsTrustStorePath;
+        }
+
+        public String getTlsTrustStorePassword() {
+            return tlsTrustStorePassword;
+        }
+
+        public void setTlsTrustStorePassword(String tlsTrustStorePassword) {
+            this.tlsTrustStorePassword = tlsTrustStorePassword;
+        }
+
+        public String getTlsKeyStorePath() {
+            return tlsKeyStorePath;
+        }
+
+        public void setTlsKeyStorePath(String tlsKeyStorePath) {
+            this.tlsKeyStorePath = tlsKeyStorePath;
+        }
+
+        public String getTlsKeyStorePassword() {
+            return tlsKeyStorePassword;
+        }
+
+        public void setTlsKeyStorePassword(String tlsKeyStorePassword) {
+            this.tlsKeyStorePassword = tlsKeyStorePassword;
+        }
+
+        public String getAuthToken() {
+            return authToken;
+        }
+
+        public void setAuthToken(String authToken) {
+            this.authToken = authToken;
+        }
+
+        public Map<String, NodeAcctDirData> getNodeAcctDirs() {
+            return nodeAcctDirs;
+        }
+
+        public void setNodeAcctDirs(Map<String, NodeAcctDirData> nodeAcctDirs) {
+            this.nodeAcctDirs = nodeAcctDirs;
+        }
+    }
+
+    public static class NodeAcctDirData {
+        private String pluginAcctDir;
+
+        public String getPluginAcctDir() {
+            return pluginAcctDir;
+        }
+
+        public void setPluginAcctDir(String pluginAcctDir) {
+            this.pluginAcctDir = pluginAcctDir;
         }
     }
 }

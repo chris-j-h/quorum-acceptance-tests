@@ -29,6 +29,9 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.List;
 
+import static com.quorum.gauge.services.AbstractService.DEFAULT_MAX_RETRY;
+import static com.quorum.gauge.services.AbstractService.DEFAULT_SLEEP_DURATION_IN_MILLIS;
+
 /**
  * Support additional privacy constructs
  *
@@ -38,6 +41,7 @@ import java.util.List;
 public class EnhancedClientTransactionManager extends ClientTransactionManager {
 
     private List<PrivacyFlag> contractFlag;
+
     private Quorum quorum;
 
     public EnhancedClientTransactionManager(Quorum quorum, String fromAddress, String privateFrom, List<String> privateFor, List<PrivacyFlag> contractFlag, int attempts, int sleepDuration) {
@@ -46,9 +50,18 @@ public class EnhancedClientTransactionManager extends ClientTransactionManager {
         this.contractFlag = contractFlag;
     }
 
+    public EnhancedClientTransactionManager(Quorum quorum, String fromAddress, String privateFrom, List<String> privateFor, List<PrivacyFlag> contractFlag) {
+        this(quorum, fromAddress, privateFrom, privateFor, contractFlag, DEFAULT_MAX_RETRY, DEFAULT_SLEEP_DURATION_IN_MILLIS);
+    }
+
     @Override
     public EthSendTransaction sendTransaction(BigInteger gasPrice, BigInteger gasLimit, String to, String data, BigInteger value) throws IOException {
-        EnhancedPrivateTransaction tx = new EnhancedPrivateTransaction(getFromAddress(), null, gasLimit, to, value, data, getPrivateFrom(), getPrivateFor(), contractFlag);
+        PrivateTransaction tx;
+        if (contractFlag != null) {
+            tx = new EnhancedPrivateTransaction(getFromAddress(), null, gasLimit, to, value, data, getPrivateFrom(), getPrivateFor(), contractFlag);
+        } else {
+            tx = new PrivateTransaction(getFromAddress(), null, gasLimit, to, value, data, getPrivateFrom(), getPrivateFor());
+        }
         return quorum.ethSendTransaction(tx).send();
     }
 

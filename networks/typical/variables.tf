@@ -2,6 +2,12 @@ variable "consensus" {
   default = "istanbul"
 }
 
+variable "privacy_enhancements" {
+    type        = object({ block = number, enabled = bool })
+    default     = { block = 0, enabled = false }
+    description = "privacy enhancements state (enabled/disabled) and the block height at which they are enabled"
+}
+
 variable "network_name" {
   default = "typical"
 }
@@ -33,11 +39,35 @@ variable "number_of_nodes" {
 
 variable "quorum_docker_image" {
   type        = object({ name = string, local = bool })
-  default     = { name = "quorumengineering/quorum:latest", local = false }
+  default     = { name = "quorumengineering/quorum:develop", local = false }
   description = "Local=true indicates that the image is already available locally and don't need to pull from registry"
+}
+
+variable "tessera_docker_image" {
+    type        = object({ name = string, local = bool })
+    default     = { name = "quorumengineering/tessera:develop", local = false }
+    description = "Local=true indicates that the image is already available locally and don't need to pull from registry"
 }
 
 variable "docker_registry" {
   type    = list(object({ name = string, username = string, password = string }))
   default = []
+}
+
+variable "additional_quorum_container_vol" {
+  type = map(list(object({container_path = string, host_path = string})))
+  default = {}
+  description = "Additional volume mounts for geth container. Each map key is the node index (0-based)"
+}
+
+variable "additional_tessera_container_vol" {
+  type        = map(list(object({ container_path = string, host_path = string })))
+  default     = {}
+  description = "Additional volume mounts for tessera container. Each map key is the node index (0-based)"
+}
+
+variable "tessera_app_container_path" {
+  type        = map(string)
+  default     = {}
+  description = "Path to Tessera app jar file in the container. Each map key is the node index (0-based)"
 }

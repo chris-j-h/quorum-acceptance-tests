@@ -67,16 +67,23 @@ public class BlockSynchronization extends AbstractSpecImplementation {
     @Autowired
     private IstanbulService istanbulService;
 
-    @Step("Start a <networkType> Quorum Network, named it <id>, consisting of <nodes>")
-    public void startNetwork(String networkType, String id, List<Node> nodes) {
-        startNetwork(networkType, id, nodes, null);
+    @Step("Start a <networkType> <permissionVersion> Quorum Network, named it <id>, consisting of <nodes>")
+    public void startNetwork(String networkType, String permissionVersion, String id, List<Node> nodes) {
+        startQuorumNetwork(networkType, id, nodes, null, permissionVersion);
+        BigInteger blockNumber = utilService.getCurrentBlockNumber().blockingFirst().getBlockNumber();
+        logger.debug("network started blockNumber:{}", blockNumber);
     }
 
     @Step("Start a <networkType> Quorum Network, named it <id>, consisting of <nodes> with <gcmode> `gcmode`")
     public void startNetwork(String networkType, String id, List<Node> nodes, String gcmode) {
+        startQuorumNetwork(networkType, id, nodes, gcmode, "v1");
+    }
+
+    public void startQuorumNetwork(String networkType, String id, List<Node> nodes, String gcmode, String permissionVersion) {
         GethArgBuilder additionalGethArgs = GethArgBuilder.newBuilder()
                 .permissioned("permissioned".equalsIgnoreCase(networkType))
                 .gcmode(gcmode);
+
         NetworkResources networkResources = new NetworkResources();
         try {
             Observable.fromIterable(nodes)
@@ -258,9 +265,33 @@ public class BlockSynchronization extends AbstractSpecImplementation {
 
     @Step("Record the current block number, named it as <name>")
     public void recordCurrentBlockNumber(String name) {
-        BigInteger currentBlockNumber = utilService.getCurrentBlockNumber().blockingFirst().getBlockNumber();
+        recordCurrentBlockNumber(QuorumNode.Node1, name);
+    }
+
+    @Step("Record the current block number in <node>, named it as <name>")
+    public void recordCurrentBlockNumber(QuorumNode node, String name) {
+        BigInteger currentBlockNumber = utilService.getCurrentBlockNumberFrom(node).blockingFirst().getBlockNumber();
         logger.debug("Current block number = {}", currentBlockNumber);
         DataStoreFactory.getScenarioDataStore().put(name, currentBlockNumber);
+    }
+
+    @Step("Wait for node <node> to catch up to <block>")
+    public void waitForNodeToReachBlockNumber(Node node, String name) {
+        final BigInteger lastBlockHeight = mustHaveValue(DataStoreFactory.getScenarioDataStore(), name, BigInteger.class);
+        BigInteger currentBlockHeight = utilService.getCurrentBlockNumberFrom(node).blockingFirst().getBlockNumber();
+        int i = 0;
+        final int MAX_COUNT = 20;
+        while (currentBlockHeight.compareTo(lastBlockHeight) < 0) {
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            currentBlockHeight = utilService.getCurrentBlockNumberFrom(node).blockingFirst().getBlockNumber();
+            logger.debug("Current block number on host {} is {}", node.getName(), currentBlockHeight);
+            i++;
+            assertThat(i).isLessThanOrEqualTo(MAX_COUNT);
+        }
     }
 
     @Step("Stop all nodes in the network <id>")
@@ -290,6 +321,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
                     Thread.sleep(duration.toMillis());
                 })
                 .blockingSubscribe();
+        logger.debug("started all nodes");
     }
 
     @Step("Verify block heights in all nodes are greater or equals to <blockHeightName> in the network <id>")

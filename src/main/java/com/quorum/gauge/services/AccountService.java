@@ -25,8 +25,12 @@ import io.reactivex.Observable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.web3j.protocol.core.DefaultBlockParameterName;
+import org.web3j.protocol.core.Request;
+import org.web3j.protocol.core.Response;
 import org.web3j.protocol.core.methods.response.EthGetBalance;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -67,6 +71,121 @@ public class AccountService extends AbstractService {
                 .flowable()
                 .toObservable()
             );
+    }
+
+    public Observable<ListWalletsResponse> personalListWallets(QuorumNetworkProperty.Node node) {
+        Request<?, ListWalletsResponse> request = new Request<>(
+            "personal_listWallets",
+            Collections.<String>emptyList(),
+            connectionFactory().getWeb3jService(node),
+            ListWalletsResponse.class);
+
+        return request.flowable().toObservable();
+    }
+
+    /**
+     *
+     * @param alias
+     * @return account address in the network property
+     */
+    public String address(String alias) {
+        for (QuorumNetworkProperty.Node node : networkProperty().getNodes().values()) {
+            if (node.getAccountAliases().containsKey(alias)) {
+                return node.getAccountAliases().get(alias);
+            }
+        }
+        throw new IllegalArgumentException("no such alias in the network property: " + alias);
+    }
+
+    public Observable<String> getAccountAddress(QuorumNetworkProperty.Node source, String ethAccount) {
+        if (ethAccount == null) {
+            return getDefaultAccountAddress(source);
+        }
+        // we don't look up for the address in source Node as we want
+        // to serve -ve cases
+        for (QuorumNetworkProperty.Node node : networkProperty().getNodes().values()) {
+            if (node.getAccountAliases().containsKey(ethAccount)) {
+                return Observable.just(node.getAccountAliases().get(ethAccount));
+            }
+        }
+        throw new IllegalArgumentException("no such account alias: " + ethAccount);
+    }
+
+    public static class ListWalletsResponse extends Response<List<Wallet>> {
+        public List<Wallet> getWallets() {
+            return getResult();
+        }
+    }
+
+    public static class Wallet {
+        List<Accounts> accounts;
+        String url;
+        String status;
+        String failure;
+
+        public boolean contains(String address) {
+            if (accounts != null) {
+                for (AccountService.Accounts a : getAccounts()) {
+                    if (address.equals(a.getAddress())) {
+                        return true;
+                    };
+                }
+            }
+            return false;
+        }
+
+        public List<Accounts> getAccounts() {
+            return accounts;
+        }
+
+        public void setAccounts(List<Accounts> accounts) {
+            this.accounts = accounts;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getFailure() {
+            return failure;
+        }
+
+        public void setFailure(String failure) {
+            this.failure = failure;
+        }
+    }
+
+    public static class Accounts {
+        String address;
+        String url;
+
+        public String getAddress() {
+            return address;
+        }
+
+        public void setAddress(String address) {
+            this.address = address;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
     }
 
 }

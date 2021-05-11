@@ -1,5 +1,6 @@
 package com.quorum.gauge;
 
+import com.quorum.gauge.common.Context;
 import com.quorum.gauge.common.PrivacyFlag;
 import com.quorum.gauge.common.QuorumNetworkProperty;
 import com.quorum.gauge.core.AbstractSpecImplementation;
@@ -13,8 +14,10 @@ import org.springframework.stereotype.Service;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
 
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,7 +38,7 @@ public class ContractExtension extends AbstractSpecImplementation {
                                                       final QuorumNetworkProperty.Node creator,
                                                       final String contractName) throws InterruptedException {
 
-        PrivacyFlag privacyFlag = PrivacyFlag.Legacy;
+        PrivacyFlag privacyFlag = PrivacyFlag.StandardPrivate;
 
         DataStoreFactory.getScenarioDataStore().put("privacyFlag", privacyFlag);
 
@@ -55,7 +58,7 @@ public class ContractExtension extends AbstractSpecImplementation {
 
         final String transactionHash = result.getResult();
 
-        final Optional<TransactionReceipt> transactionReceipt = this.getTransactionReceipt(creator, transactionHash);
+        final Optional<TransactionReceipt> transactionReceipt = transactionService.pollTransactionReceipt(creator, transactionHash);
 
         assertThat(transactionReceipt.isPresent()).isTrue();
         assertThat(transactionReceipt.get().getStatus()).isEqualTo("0x1");
@@ -68,13 +71,36 @@ public class ContractExtension extends AbstractSpecImplementation {
 
     }
 
+    @Step("Initiate <contractName> extension from non creating node <fromNode> to <newNode> should fail with error message <errMsg>")
+    public void createInvalidExtensionProposition(final String contractName,
+                                                  final QuorumNetworkProperty.Node fromNode,
+                                                  final QuorumNetworkProperty.Node newNode,
+                                                  final String errMsg) throws InterruptedException {
+        PrivacyFlag privacyFlag = PrivacyFlag.StandardPrivate;
+
+        DataStoreFactory.getScenarioDataStore().put("privacyFlag", privacyFlag);
+
+
+        final Set<QuorumNetworkProperty.Node> allNodes = Stream.of(fromNode, newNode)
+            .collect(Collectors.toSet());
+        DataStoreFactory.getScenarioDataStore().put("extensionAllNodes", allNodes);
+
+        final Contract existingContract = mustHaveValue(DataStoreFactory.getScenarioDataStore(), contractName, Contract.class);
+
+        final QuorumExtendContract result = extensionService
+            .initiateContractExtension(fromNode, existingContract.getContractAddress(), newNode, privacyFlag)
+            .blockingFirst();
+
+        assertThat(result.getError().getMessage()).isEqualTo(errMsg);
+    }
+
     @Step("Initiating contract extension to <newNode> with its default account as recipient from <creator> for contract <contractName> should fail with error <errMsg>")
     public void createFailedContractExtensionProposition(final QuorumNetworkProperty.Node newNode,
                                                          final QuorumNetworkProperty.Node creator,
                                                          final String contractName,
                                                          final String errMsg) throws InterruptedException {
 
-        PrivacyFlag privacyFlag = PrivacyFlag.Legacy;
+        PrivacyFlag privacyFlag = PrivacyFlag.StandardPrivate;
 
         DataStoreFactory.getScenarioDataStore().put("privacyFlag", privacyFlag);
 
@@ -98,7 +124,7 @@ public class ContractExtension extends AbstractSpecImplementation {
                                                final QuorumNetworkProperty.Node newNode,
                                                final QuorumNetworkProperty.Node creator,
                                                final String expErrMsg) {
-        PrivacyFlag privacyFlag = PrivacyFlag.Legacy;
+        PrivacyFlag privacyFlag = PrivacyFlag.StandardPrivate;
         DataStoreFactory.getScenarioDataStore().put("privacyFlag", privacyFlag);
         final Set<QuorumNetworkProperty.Node> allNodes = Stream.of(newNode, creator)
             .collect(Collectors.toSet());
@@ -127,7 +153,7 @@ public class ContractExtension extends AbstractSpecImplementation {
 
         assertThat(result.getError()).isNull();
 
-        final Optional<TransactionReceipt> transactionReceipt = this.getTransactionReceipt(newNode, result.getResult());
+        final Optional<TransactionReceipt> transactionReceipt = transactionService.pollTransactionReceipt(newNode, result.getResult());
 
         assertThat(transactionReceipt.isPresent()).isTrue();
         assertThat(transactionReceipt.get().getStatus()).isEqualTo("0x1");
@@ -148,7 +174,7 @@ public class ContractExtension extends AbstractSpecImplementation {
         assertThat(voteResult.getError()).isNull();
 
         final Optional<TransactionReceipt> transactionReceipt
-            = this.getTransactionReceipt(node, voteResult.getResult());
+            = transactionService.pollTransactionReceipt(node, voteResult.getResult());
 
         assertThat(transactionReceipt.isPresent()).isTrue();
         assertThat(transactionReceipt.get().getStatus()).isEqualTo("0x1");
@@ -174,7 +200,7 @@ public class ContractExtension extends AbstractSpecImplementation {
 
         assertThat(result.getError()).isNull();
 
-        final Optional<TransactionReceipt> transactionReceipt = this.getTransactionReceipt(node, result.getResult());
+        final Optional<TransactionReceipt> transactionReceipt = transactionService.pollTransactionReceipt(node, result.getResult());
 
         assertThat(transactionReceipt.isPresent()).isTrue();
         assertThat(transactionReceipt.get().getStatus()).isEqualTo("0x1");
@@ -257,69 +283,61 @@ public class ContractExtension extends AbstractSpecImplementation {
         Thread.sleep(1000);
     }
 
-    private Optional<TransactionReceipt> getTransactionReceipt(final QuorumNetworkProperty.Node node, final String transactionHash) {
-        return transactionService
-            .getTransactionReceipt(node, transactionHash)
-            .repeatWhen(completed -> completed.delay(2, TimeUnit.SECONDS))
-            .takeUntil(ethGetTransactionReceipt -> {
-                return ethGetTransactionReceipt.getTransactionReceipt().isPresent();
-            })
-            .timeout(30, TimeUnit.SECONDS)
-            .blockingLast()
-            .getTransactionReceipt();
-    }
-
 
     @Step("Wait for <contractName> to disappear from active extension in <node>")
     public void extensionCompleted(final String contractName, final QuorumNetworkProperty.Node node) {
 
         final Contract contract = mustHaveValue(contractName, Contract.class);
+        Optional<String> accessToken = haveValue(DataStoreFactory.getScenarioDataStore(), "access_token", String.class);
+        accessToken.ifPresent(Context::storeAccessToken);
+        try {
+            int count = 0;
 
-        int count = 0;
-
-        while (true) {
-            count++;
-            final QuorumActiveExtensionContracts result = this.extensionService
-                .getExtensionContracts(node)
-                .blockingFirst();
-
-            final Optional<Map<Object, Object>> first = result.getResult()
-                .stream()
-                .filter(contractStatus -> contractStatus.containsValue(contract.getContractAddress()))
-                .findFirst();
-            if ((!first.isPresent()) || (count > 25)) {
-                break;
-            } else {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        final DataStore store = DataStoreFactory.getScenarioDataStore();
-
-        final String contractAddress = mustHaveValue(store, contractName + "extensionAddress", String.class);
-        String status = extensionService.getExtensionStatus(node, contractAddress);
-        int i = 0;
-        if (!status.equals("DONE")) {
             while (true) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                i++;
-                status = extensionService.getExtensionStatus(node, contractAddress);
-                if ((i > 25) || status.equals("DONE")) {
+                count++;
+                final QuorumActiveExtensionContracts result = this.extensionService
+                    .getExtensionContracts(node)
+                    .blockingFirst();
+
+                final Optional<Map<Object, Object>> first = result.getResult()
+                    .stream()
+                    .filter(contractStatus -> contractStatus.containsValue(contract.getContractAddress()))
+                    .findFirst();
+                if ((!first.isPresent()) || (count > 25)) {
                     break;
+                } else {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
-
             }
+
+            final DataStore store = DataStoreFactory.getScenarioDataStore();
+
+            final String contractAddress = mustHaveValue(store, contractName + "extensionAddress", String.class);
+            String status = extensionService.getExtensionStatus(node, contractAddress);
+            int i = 0;
+            if (!status.equals("DONE")) {
+                while (true) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    i++;
+                    status = extensionService.getExtensionStatus(node, contractAddress);
+                    if ((i > 25) || status.equals("DONE")) {
+                        break;
+                    }
+
+                }
+            }
+            assertThat(status).describedAs("Extension must be successfully completed").isEqualTo("DONE");
+        } finally {
+            Context.removeAccessToken();
         }
-
-
     }
 
 }
