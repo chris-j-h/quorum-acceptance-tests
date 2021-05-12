@@ -1,104 +1,165 @@
 name: 'Prepare test environment'
 description: 'Prepare the environment for running the acceptance tests'
 inputs:
-    gaugeTag:
-        description: 'Gauge tags to filter the tests that are run and network created'
-        required: true
-    privacyEnhancements:
-        description: 'run tests with privacy-enhancements enabled'
-        required: false
-        default: 'false'
-    outputDir:
-        description: 'location (path only) of acctest docker image archive to use'
-        required: true
-        default: ${{ runner.temp }}/docker
-    imageArchiveName:
-        description: 'name (no path or extension) of acctest docker image archive to use'
-        required: true
-    useAWS:
-        description: 'use AWS infra for test network deployment'
-        required: true
-        default: 'false'
-    awsRegion:
-        description: 'AWS region'
-        required: false
-    awsAccessKeyId:
-        description: 'AWS access key ID'
-        required: false
-    awsSecretAccessKey:
-        description: 'AWS secret access key'
-        required: false
-    awsVpcId:
-        description: 'AWS VPC ID'
-        required: false
-    awsPublicSubnetId:
-        description: 'AWS public subnet ID'
-        required: false
+  gaugeTag:
+    description: 'Gauge tags to filter the tests that are run and network created'
+    required: true
+  privacyEnhancements:
+    description: 'run tests with privacy-enhancements enabled'
+    required: false
+    default: 'false'
+  outputDir:
+    description: 'location (path only) of acctest docker image archive to use'
+    required: true
+    default: ${{ runner.temp }}/docker
+  imageArchiveName:
+    description: 'name (no path or extension) of acctest docker image archive to use'
+    required: true
+  useAWS:
+    description: 'use AWS infra for test network deployment'
+    required: true
+    default: 'false'
+  awsRegion:
+    description: 'AWS region'
+    required: false
+  awsAccessKeyId:
+    description: 'AWS access key ID'
+    required: false
+  awsSecretAccessKey:
+    description: 'AWS secret access key'
+    required: false
+  awsVpcId:
+    description: 'AWS VPC ID'
+    required: false
+  awsPublicSubnetId:
+    description: 'AWS public subnet ID'
+    required: false
 outputs:
-    tagHash:
-        description: 'Hash of gauge tag (serves as unique ID)'
-        value: ${{ steps.prepare.outputs.tag }}
-    mvnArg:
-        description: 'mvnArg to apply to mvn test build'
-        value: ${{ steps.prepare.outputs.mvnArg }}
-    dockerEnv:
-        description: 'dockerEnv to apply to docker acctest image'
-        value: ${{ steps.prepare.outputs.dockerEnv }}
-    outputDir:
-        description: 'outputDir'
-        value: ${{ steps.prepare.outputs.outputDir }}
-    dockerEnvFile:
-        description: 'dockerEnvFile path'
-        value: ${{ steps.prepare.outputs.dockerEnvFile }}
+  tagHash:
+    description: 'Hash of gauge tag (serves as unique ID)'
+    value: ${{ steps.prepare.outputs.tag }}
+  mvnArg:
+    description: 'mvnArg to apply to mvn test build'
+    value: ${{ steps.prepare.outputs.mvnArg }}
+  dockerEnv:
+    description: 'dockerEnv to apply to docker acctest image'
+    value: ${{ steps.prepare.outputs.dockerEnv }}
+  outputDir:
+    description: 'outputDir'
+    value: ${{ steps.prepare.outputs.outputDir }}
+  dockerEnvFile:
+    description: 'dockerEnvFile path'
+    value: ${{ steps.prepare.outputs.dockerEnvFile }}
 
 runs:
-    using: "composite"
-    steps:
-        - name: 'Prepare environment'
-          id: 'prepare'
-          shell: bash
-          run: |
-            tar xfvz ${{ inputs.outputDir }}/${{ inputs.imageArchiveName }}.tar.gz
-            docker load --input ${{ inputs.imageArchiveName }}.tar
-            tagKey=$(echo -n "${{ inputs.gaugeTag }}" | shasum --algorithm=256 | awk '{print $1}')
-            mvnArg=""
-            dockerEnv="--network host -v /var/run/docker.sock:/var/run/docker.sock"
-            if [ "${{ inputs.useAWS }}" == "true" ]; then
-              infraFolder="networks/_infra/aws-ec2"
-              infraProfile="${{ inputs.awsRegion }}"
-              mvnArg="-Dinfra.target=$infraFolder::$infraProfile"
-              dockerEnv="-e AWS_ACCESS_KEY_ID=${{ inputs.awsAccessKeyId }} -e AWS_SECRET_ACCESS_KEY=${{ inputs.awsSecretAccessKey }} -e TF_VAR_vpc_id=${{ inputs.awsVpcId }} -e TF_VAR_public_subnet_id=${{ inputs.awsPublicSubnetId }}"
-              echo "INFRA_FOLDER=$infraFolder" >> $GITHUB_ENV
-              echo "INFRA_PROFILE=$infraProfile" >> $GITHUB_ENV
-            fi
-            dockerEnvFile=${{ runner.temp }}/env.list
-            # now we check if we should use the custom docker images in this repo
-            gitref_path="${{ github.ref }}"
-            gitref_path=${gitref_path/refs\/heads\//} # for refs/heads/my-branch
-            if [[ $gitref_path == dev-* ]]; then
-              echo "${{ github.token }}" | docker login https://docker.pkg.github.com -u ${{ github.repository_owner }} --password-stdin
-              quorum_docker_image="docker.pkg.github.com/${{ github.repository }}/quorum-$gitref_path:develop"
-              tessera_docker_image="docker.pkg.github.com/${{ github.repository }}/tessera-$gitref_path:develop"
-              has_quorum_docker_image=$(docker pull $quorum_docker_image >/dev/null 2>&1; echo $?)
-              has_tessera_docker_image=$(docker pull $tessera_docker_image >/dev/null 2>&1; echo $?)
-              echo "$quorum_docker_image: $has_quorum_docker_image"
-              echo "$tessera_docker_image: $has_tessera_docker_image"
-              if [ $has_quorum_docker_image -eq 0 ]; then
-                echo "::warning ::Using $quorum_docker_image"
-                echo "TF_VAR_quorum_docker_image={name=\"$quorum_docker_image\", local=true}" >> $dockerEnvFile
-                docker pull quorumengineering/quorum:develop
-                docker pull quorumengineering/quorum:latest
-              fi
-              if [ $has_tessera_docker_image -eq 0 ]; then
-                echo "::warning ::Using $tessera_docker_image"
-                echo "TF_VAR_tessera_docker_image={name=\"$tessera_docker_image\", local=true}" >> $dockerEnvFile
-                docker pull quorumengineering/tessera:develop
-                docker pull quorumengineering/tessera:latest
-              fi
-            fi
-            echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ inputs.privacyEnhancements}}}" >> $dockerEnvFile
-            echo "::set-output name=tag::$tagKey"
-            echo "::set-output name=mvnArg::$mvnArg"
-            echo "::set-output name=dockerEnv::$dockerEnv"
-            echo "::set-output name=outputDir::${{ runner.temp }}"
-            echo "::set-output name=dockerEnvFile::$dockerEnvFile"
+  using: "composite"
+  steps:
+    - name: 'Prepare environment'
+      id: 'prepare'
+      shell: bash
+      run: |
+        tar xfvz ${{ inputs.outputDir }}/${{ inputs.imageArchiveName }}.tar.gz
+        docker load --input ${{ inputs.imageArchiveName }}.tar
+        tagKey=$(echo -n "${{ inputs.gaugeTag }}" | shasum --algorithm=256 | awk '{print $1}')
+        mvnArg=""
+        dockerEnv="--network host -v /var/run/docker.sock:/var/run/docker.sock"
+        if [ "${{ inputs.useAWS }}" == "true" ]; then
+          infraFolder="networks/_infra/aws-ec2"
+          infraProfile="${{ inputs.awsRegion }}"
+          mvnArg="-Dinfra.target=$infraFolder::$infraProfile"
+          dockerEnv="-e AWS_ACCESS_KEY_ID=${{ inputs.awsAccessKeyId }} -e AWS_SECRET_ACCESS_KEY=${{ inputs.awsSecretAccessKey }} -e TF_VAR_vpc_id=${{ inputs.awsVpcId }} -e TF_VAR_public_subnet_id=${{ inputs.awsPublicSubnetId }}"
+          echo "INFRA_FOLDER=$infraFolder" >> $GITHUB_ENV
+          echo "INFRA_PROFILE=$infraProfile" >> $GITHUB_ENV
+        fi
+        dockerEnvFile=${{ runner.temp }}/env.list
+        # now we check if we should use the custom docker images in this repo
+        gitref_path="${{ github.ref }}"
+        gitref_path=${gitref_path/refs\/heads\//} # for refs/heads/my-branch
+        if [[ $gitref_path == dev-* ]]; then
+          echo "${{ github.token }}" | docker login https://docker.pkg.github.com -u ${{ github.repository_owner }} --password-stdin
+          quorum_docker_image="docker.pkg.github.com/${{ github.repository }}/quorum-$gitref_path:develop"
+          tessera_docker_image="docker.pkg.github.com/${{ github.repository }}/tessera-$gitref_path:develop"
+          has_quorum_docker_image=$(docker pull $quorum_docker_image >/dev/null 2>&1; echo $?)
+          has_tessera_docker_image=$(docker pull $tessera_docker_image >/dev/null 2>&1; echo $?)
+          echo "$quorum_docker_image: $has_quorum_docker_image"
+          echo "$tessera_docker_image: $has_tessera_docker_image"
+          if [ $has_quorum_docker_image -eq 0 ]; then
+            echo "::warning ::Using $quorum_docker_image"
+            echo "TF_VAR_quorum_docker_image={name=\"$quorum_docker_image\", local=true}" >> $dockerEnvFile
+            docker pull quorumengineering/quorum:develop
+            docker pull quorumengineering/quorum:latest
+          fi
+          if [ $has_tessera_docker_image -eq 0 ]; then
+            echo "::warning ::Using $tessera_docker_image"
+            echo "TF_VAR_tessera_docker_image={name=\"$tessera_docker_image\", local=true}" >> $dockerEnvFile
+            docker pull quorumengineering/tessera:develop
+            docker pull quorumengineering/tessera:latest
+          fi
+        fi
+        echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ inputs.privacyEnhancements}}}" >> $dockerEnvFile
+        echo "::set-output name=tag::$tagKey"
+        echo "::set-output name=mvnArg::$mvnArg"
+        echo "::set-output name=dockerEnv::$dockerEnv"
+        echo "::set-output name=outputDir::${{ runner.temp }}"
+        echo "::set-output name=dockerEnvFile::$dockerEnvFile"
+    - name: 'Run tests using ${{ needs.condition.outputs.infra }}'
+      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      run: |
+        # we don't remove the container after run as we need to clean up the infra if used
+        docker run \
+        --name acctests-run ${{ steps.setup.outputs.dockerEnv }} \
+        -v ${{ steps.setup.outputs.outputDir }}:${{ steps.setup.outputs.outputDir }} \
+        --env-file ${{ steps.setup.outputs.dockerEnvFile }} \
+        ${{ needs.docker-build.outputs.image_name }} test \
+        -PgaugeFailSafe \
+        -Pauto \
+        -Dtags="${{ matrix.tag }}" ${{ steps.setup.outputs.mvnArg }} \
+        -Dauto.outputDir=${{ steps.setup.outputs.outputDir }} \
+        -Dauto.jobid=${{ steps.setup.outputs.tagHash }}
+    - name: 'Failure info'
+      if: ${{ failure() }}
+      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      run: |
+        echo "acceptance tests failures"
+        docker images
+        docker ps -a
+        for containerId in $(docker ps -qa); do echo "container: $containerId"; docker container inspect $containerId; docker container logs $containerId; done
+    - name: 'Read test report'
+      if: always()
+      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      run: |
+        failuresRaw="$(cat ${{ steps.setup.outputs.outputDir }}/failures.txt | jq -r '.[] | @base64')"
+        SAVEIFS=$IFS   # Save current IFS
+        IFS=$'\n'      # Change IFS to new line
+        failures=($failuresRaw) # split to array
+        IFS=$SAVEIFS   # Restore IFS
+        for (( i=0; i<${#failures[@]}; i++ ))
+        do
+        row=${failures[$i]}
+        _jq() {
+        echo ${row} | base64 --decode | jq -r ${1}
+        }
+        echo "$(_jq '.file'): $(_jq '.message')"
+        echo "::error file=$(_jq '.file'),line=$(_jq '.line'),col=$(_jq '.col')::$(_jq '.message')"
+        done
+        cat ${{ steps.setup.outputs.outputDir}}/summary.txt
+    - name: 'Upload test report'
+      if: always()
+      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: testreport-${{ steps.setup.outputs.tagHash }}
+        path: ${{ steps.setup.outputs.outputDir }}/*.* # only files not directory
+    - name: 'Destroy infrastructure resources if ever created'
+      if: always() && needs.condition.outputs.use_aws == 'true'
+      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      # we don't care about containers running on the remote VM
+      run: |
+        docker commit acctests-run quorumengineering/acctests:after
+        docker run --rm ${{ steps.setup.outputs.dockerEnv }} \
+        -v ${{ steps.setup.outputs.outputDir }}:${{ steps.setup.outputs.outputDir  }} \
+        quorumengineering/acctests:after \
+        exec:exec@infra.terraform-destroy \
+        -Pauto \
+        -Dinfra.folder="${{ env.INFRA_FOLDER }}" \
+        -Dinfra.profile="${{ env.INFRA_PROFILE }}"
