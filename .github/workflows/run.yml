@@ -144,6 +144,7 @@ jobs:
             awsSecretAccessKey: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             awsVpcId: ${{ secrets.AWS_VPC_ID }}
             awsPublicSubnetId: ${{ secrets.AWS_PUBLIC_SUBNET_ID }}
+            continueOnError: ${{ matrix.besu-network }}
 #      - name: 'Prepare environment'
 #        id: setup
 #        run: |

@@ -8,3 +8,6 @@ spaces_around_operators = true
 # 2 space indentation
 [*.tf]
 indent_size = 2
+
+[action.yml]
+indent_size = 2

@@ -34,6 +34,10 @@ inputs:
   awsPublicSubnetId:
     description: 'AWS public subnet ID'
     required: false
+  continueOnError:
+    description: 'Run all workflow steps even if error encountered (be careful! results in green tick in UI for all affected steps regardless of status)'
+    required: false
+    default: 'false'
 outputs:
   tagHash:
     description: 'Hash of gauge tag (serves as unique ID)'
@@ -103,7 +107,7 @@ runs:
         echo "::set-output name=outputDir::${{ runner.temp }}"
         echo "::set-output name=dockerEnvFile::$dockerEnvFile"
     - name: 'Run tests using ${{ needs.condition.outputs.infra }}'
-      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      continue-on-error: ${{ inputs.continueOnError == 'true' }}
       run: |
         # we don't remove the container after run as we need to clean up the infra if used
         docker run \
@@ -118,7 +122,7 @@ runs:
         -Dauto.jobid=${{ steps.setup.outputs.tagHash }}
     - name: 'Failure info'
       if: ${{ failure() }}
-      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      continue-on-error: ${{ inputs.continueOnError == 'true' }}
       run: |
         echo "acceptance tests failures"
         docker images
@@ -126,7 +130,7 @@ runs:
         for containerId in $(docker ps -qa); do echo "container: $containerId"; docker container inspect $containerId; docker container logs $containerId; done
     - name: 'Read test report'
       if: always()
-      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      continue-on-error: ${{ inputs.continueOnError == 'true' }}
       run: |
         failuresRaw="$(cat ${{ steps.setup.outputs.outputDir }}/failures.txt | jq -r '.[] | @base64')"
         SAVEIFS=$IFS   # Save current IFS
@@ -145,14 +149,14 @@ runs:
         cat ${{ steps.setup.outputs.outputDir}}/summary.txt
     - name: 'Upload test report'
       if: always()
-      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      continue-on-error: ${{ inputs.continueOnError == 'true' }}
       uses: actions/upload-artifact@v2
       with:
         name: testreport-${{ steps.setup.outputs.tagHash }}
         path: ${{ steps.setup.outputs.outputDir }}/*.* # only files not directory
     - name: 'Destroy infrastructure resources if ever created'
       if: always() && needs.condition.outputs.use_aws == 'true'
-      continue-on-error: ${{ matrix.besu-network == 'true' }}
+      continue-on-error: ${{ inputs.continueOnError == 'true' }}
       # we don't care about containers running on the remote VM
       run: |
         docker commit acctests-run quorumengineering/acctests:after
