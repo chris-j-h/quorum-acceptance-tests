@@ -145,6 +145,8 @@ jobs:
             awsVpcId: ${{ secrets.AWS_VPC_ID }}
             awsPublicSubnetId: ${{ secrets.AWS_PUBLIC_SUBNET_ID }}
             continueOnError: ${{ matrix.besu-network }}
+            infra: ${{ needs.condition.outputs.infra }}
+            imageName: ${{ needs.docker-build.outputs.image_name }}
 #      - name: 'Prepare environment'
 #        id: setup
 #        run: |

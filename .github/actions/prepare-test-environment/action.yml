@@ -38,28 +38,34 @@ inputs:
     description: 'Run all workflow steps even if error encountered (be careful! results in green tick in UI for all affected steps regardless of status)'
     required: false
     default: 'false'
+  infra:
+    description: 'Display name of infrastructure to use for test network'
+    required: true
+  imageName:
+    description: 'Docker acctest image name'
+    required: true
 outputs:
   tagHash:
     description: 'Hash of gauge tag (serves as unique ID)'
-    value: ${{ steps.prepare.outputs.tag }}
+    value: ${{ steps.setup.outputs.tagHash }}
   mvnArg:
     description: 'mvnArg to apply to mvn test build'
-    value: ${{ steps.prepare.outputs.mvnArg }}
+    value: ${{ steps.setup.outputs.mvnArg }}
   dockerEnv:
     description: 'dockerEnv to apply to docker acctest image'
-    value: ${{ steps.prepare.outputs.dockerEnv }}
+    value: ${{ steps.setup.outputs.dockerEnv }}
   outputDir:
     description: 'outputDir'
-    value: ${{ steps.prepare.outputs.outputDir }}
+    value: ${{ steps.setup.outputs.outputDir }}
   dockerEnvFile:
     description: 'dockerEnvFile path'
-    value: ${{ steps.prepare.outputs.dockerEnvFile }}
+    value: ${{ steps.setup.outputs.dockerEnvFile }}
 
 runs:
   using: "composite"
   steps:
     - name: 'Prepare environment'
-      id: 'prepare'
+      id: 'setup'
       shell: bash
       run: |
         tar xfvz ${{ inputs.outputDir }}/${{ inputs.imageArchiveName }}.tar.gz
@@ -101,12 +107,12 @@ runs:
           fi
         fi
         echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ inputs.privacyEnhancements}}}" >> $dockerEnvFile
-        echo "::set-output name=tag::$tagKey"
+        echo "::set-output name=tagHash::$tagKey"
         echo "::set-output name=mvnArg::$mvnArg"
         echo "::set-output name=dockerEnv::$dockerEnv"
         echo "::set-output name=outputDir::${{ runner.temp }}"
         echo "::set-output name=dockerEnvFile::$dockerEnvFile"
-    - name: 'Run tests using ${{ needs.condition.outputs.infra }}'
+    - name: 'Run tests using ${{ inputs.infra }}'
       continue-on-error: ${{ inputs.continueOnError == 'true' }}
       run: |
         # we don't remove the container after run as we need to clean up the infra if used
@@ -114,10 +120,10 @@ runs:
         --name acctests-run ${{ steps.setup.outputs.dockerEnv }} \
         -v ${{ steps.setup.outputs.outputDir }}:${{ steps.setup.outputs.outputDir }} \
         --env-file ${{ steps.setup.outputs.dockerEnvFile }} \
-        ${{ needs.docker-build.outputs.image_name }} test \
+        ${{ inputs.imageName }} test \
         -PgaugeFailSafe \
         -Pauto \
-        -Dtags="${{ matrix.tag }}" ${{ steps.setup.outputs.mvnArg }} \
+        -Dtags="${{ inputs.gaugeTag }}" ${{ steps.setup.outputs.mvnArg }} \
         -Dauto.outputDir=${{ steps.setup.outputs.outputDir }} \
         -Dauto.jobid=${{ steps.setup.outputs.tagHash }}
     - name: 'Failure info'
@@ -155,7 +161,7 @@ runs:
         name: testreport-${{ steps.setup.outputs.tagHash }}
         path: ${{ steps.setup.outputs.outputDir }}/*.* # only files not directory
     - name: 'Destroy infrastructure resources if ever created'
-      if: always() && needs.condition.outputs.use_aws == 'true'
+      if: always() && inputs.useAWS == 'true'
       continue-on-error: ${{ inputs.continueOnError == 'true' }}
       # we don't care about containers running on the remote VM
       run: |
