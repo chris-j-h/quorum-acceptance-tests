@@ -114,16 +114,54 @@ jobs:
           - 'privacy-enhancements-upgrade || networks/template::raft-4nodes-pe'
           - 'privacy-enhancements-upgrade || networks/template::istanbul-4nodes-pe'
           - 'multitenancy && networks/plugins::raft-multitenancy'
-        privacy-enhancements:
-          - 'false'
+        privacy-enhancements: [ false ]
+        quorum-precompiles-v1: [ false, true ]
+        privacy-marker-transactions: [ false ]
         include:
-          - tag: '(basic && !privacy-enhancements-disabled) || privacy-enhancements || basic-raft || (advanced && raft) || networks/typical::raft'
-            privacy-enhancements: 'true'
-          - tag: '(basic && !privacy-enhancements-disabled) || privacy-enhancements || basic-istanbul || (advanced && istanbul) || networks/typical::istanbul'
-            privacy-enhancements: 'true'
-          - tag: '(basic && !privacy-enhancements-disabled && !async && !extension && !storage-root && !get-quorum-payload && !personal-api-signed) || networks/typical-besu::ibft2'
-            privacy-enhancements: 'false'
-            besu-network: 'true'
+            -   tag: '(basic && !privacy-enhancements-disabled) || privacy-enhancements || basic-raft || (advanced && raft) || networks/typical::raft'
+                privacy-enhancements: true
+                quorum-precompiles-v1: false
+                privacy-marker-transactions: false
+            -   tag: '(basic && !privacy-enhancements-disabled) || privacy-enhancements || basic-istanbul || (advanced && istanbul) || networks/typical::istanbul'
+                privacy-enhancements: true
+                quorum-precompiles-v1: false
+                privacy-marker-transactions: false
+            -   tag: '(basic && !privacy-enhancements-disabled && !privacy-precompile-disabled) || privacy-enhancements || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/typical::raft'
+                privacy-enhancements: true
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(basic && !privacy-enhancements-disabled && !privacy-precompile-disabled) || privacy-enhancements || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/typical::istanbul'
+                privacy-enhancements: true
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/typical::raft'
+                privacy-enhancements: false
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/typical::istanbul'
+                privacy-enhancements: false
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/plugins::raft'
+                privacy-enhancements: false
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul'
+                privacy-enhancements: false
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/plugins::raft-account-plugin-hashicorp-vault'
+                privacy-enhancements: false
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul-account-plugin-hashicorp-vault'
+                privacy-enhancements: false
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
+            -   tag: '(multitenancy || privacy-precompile-enabled) && networks/plugins::raft-multitenancy'
+                privacy-enhancements: false
+                quorum-precompiles-v1: true
+                privacy-marker-transactions: true
     runs-on: ubuntu-18.04
     steps:
       - name: 'Download docker image'
@@ -173,6 +211,8 @@ jobs:
             fi
           fi
           echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ matrix.privacy-enhancements}}}" >> $dockerEnvFile
+          echo "TF_VAR_quorum_precompiles_v1={block=0, enabled=${{ matrix.quorum-precompiles-v1}}}" >> $dockerEnvFile
+          echo "TF_VAR_privacy_marker_transactions=${{ matrix.privacy-marker-transactions}}" >> $dockerEnvFile
           echo "::set-output name=tag::$tagKey"
           echo "::set-output name=mvnArg::$mvnArg"
           echo "::set-output name=dockerEnv::$dockerEnv"
