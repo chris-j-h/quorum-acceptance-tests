@@ -33,7 +33,7 @@ jobs:
             useAws="false"
             infraName="GithubActionsVM"
           fi
-          echo "::warning ::Networks are provisioned using $infraName infrastructure"
+          echo "::warning ::Networks are provisioned using $infraName infrastructure (useAws=$useAws)"
           echo "::set-output name=val::$val"
           echo "::set-output name=useAws::$useAws"
           echo "::set-output name=infra::$infraName"
@@ -172,7 +172,13 @@ jobs:
           tagKey=$(echo -n "${{ matrix.tag }}" | shasum --algorithm=256 | awk '{print $1}')
           mvnArg=""
           dockerEnv="--network host -v /var/run/docker.sock:/var/run/docker.sock"
-          echo "CHRISSY checking if using AWS"
+          echo "CHRISSY checking if using AWS (use_aws=${{ needs.condition.outputs.use_aws }})"
+          if [ "${{ needs.condition.outputs.use_aws }}" == "true" ]; then
+            echo "CHRISSY double equals"
+          fi
+          if [ "${{ needs.condition.outputs.use_aws }}" == "true" ]; then
+            echo "CHRISSY single equals"
+          fi
           if [ "${{ needs.condition.outputs.use_aws }}" == "true" ]; then
             echo "CHRISSY using AWS"
             infraFolder="networks/_infra/aws-ec2"
