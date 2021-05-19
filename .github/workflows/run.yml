@@ -94,19 +94,19 @@ jobs:
           - 'gcmode && block-sync && networks/template::istanbul-3plus1'
           - 'learner-peer-management || raftdnsenable && networks/template::raft-3plus1'
           - 'validator-management && networks/template::istanbul-3plus1'
-          - 'basic || basic-raft || (advanced && raft) || networks/plugins::raft'
-          - 'basic || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul'
-          - 'basic || basic-raft || (advanced && raft) || networks/plugins::raft-account-plugin-hashicorp-vault'
-          - 'basic || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul-account-plugin-hashicorp-vault'
-          - 'basic-rpc-security || networks/plugins::raft-rpc-security'
-          - 'basic-rpc-security || networks/plugins::istanbul-rpc-security'
+#          - 'basic || basic-raft || (advanced && raft) || networks/plugins::raft'
+#          - 'basic || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul'
+#          - 'basic || basic-raft || (advanced && raft) || networks/plugins::raft-account-plugin-hashicorp-vault'
+#          - 'basic || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul-account-plugin-hashicorp-vault'
+#          - 'basic-rpc-security || networks/plugins::raft-rpc-security'
+#          - 'basic-rpc-security || networks/plugins::istanbul-rpc-security'
           - 'migration && networks/template::raft-4nodes'
           - 'migration && networks/template::istanbul-4nodes'
           - 'permissions-v1 && networks/template::raft-3plus1'
           - 'permissions-v2 && networks/template::raft-3plus1'
           - 'privacy-enhancements-upgrade || networks/template::raft-4nodes-pe'
           - 'privacy-enhancements-upgrade || networks/template::istanbul-4nodes-pe'
-          - 'multitenancy && networks/plugins::raft-multitenancy'
+#          - 'multitenancy && networks/plugins::raft-multitenancy'
         privacy-enhancements: [ false ]
 #        quorum-precompiles-v1: [ false ]
         quorum-precompiles-v1: [ false, true ]
@@ -136,26 +136,26 @@ jobs:
                 privacy-enhancements: false
                 quorum-precompiles-v1: true
                 privacy-marker-transactions: true
-            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/plugins::raft'
-                privacy-enhancements: false
-                quorum-precompiles-v1: true
-                privacy-marker-transactions: true
-            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul'
-                privacy-enhancements: false
-                quorum-precompiles-v1: true
-                privacy-marker-transactions: true
-            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/plugins::raft-account-plugin-hashicorp-vault'
-                privacy-enhancements: false
-                quorum-precompiles-v1: true
-                privacy-marker-transactions: true
-            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul-account-plugin-hashicorp-vault'
-                privacy-enhancements: false
-                quorum-precompiles-v1: true
-                privacy-marker-transactions: true
-            -   tag: '(multitenancy || privacy-precompile-enabled) && networks/plugins::raft-multitenancy'
-                privacy-enhancements: false
-                quorum-precompiles-v1: true
-                privacy-marker-transactions: true
+#            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/plugins::raft'
+#                privacy-enhancements: false
+#                quorum-precompiles-v1: true
+#                privacy-marker-transactions: true
+#            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul'
+#                privacy-enhancements: false
+#                quorum-precompiles-v1: true
+#                privacy-marker-transactions: true
+#            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-raft || (advanced && raft) || networks/plugins::raft-account-plugin-hashicorp-vault'
+#                privacy-enhancements: false
+#                quorum-precompiles-v1: true
+#                privacy-marker-transactions: true
+#            -   tag: '(basic && !privacy-precompile-disabled) || privacy-precompile-enabled || basic-istanbul || (advanced && istanbul) || networks/plugins::istanbul-account-plugin-hashicorp-vault'
+#                privacy-enhancements: false
+#                quorum-precompiles-v1: true
+#                privacy-marker-transactions: true
+#            -   tag: '(multitenancy || privacy-precompile-enabled) && networks/plugins::raft-multitenancy'
+#                privacy-enhancements: false
+#                quorum-precompiles-v1: true
+#                privacy-marker-transactions: true
     runs-on: ubuntu-18.04
     steps:
       - name: 'Download docker image'
