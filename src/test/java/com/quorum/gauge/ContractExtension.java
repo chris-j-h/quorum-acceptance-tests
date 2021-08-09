@@ -270,6 +270,11 @@ public class ContractExtension extends AbstractSpecImplementation {
             .cancelExtension(node, contractAddress, allNodes, privacyFlag)
             .blockingFirst();
 
+        if (result.hasError()) {
+            System.out.printf("error msg: %s\n", result.getError().getMessage());
+            System.err.println("error msg: " + result.getError().getMessage());
+        }
+
         assertThat(result.getError()).isNull();
 
         Thread.sleep(1000);
