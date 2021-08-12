@@ -1,5 +1,6 @@
 package com.quorum.gauge.ext;
 
+import com.quorum.gauge.common.Context;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.RawTransaction;
 import org.web3j.crypto.TransactionEncoder;
@@ -27,6 +28,8 @@ import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 // the QuorumTransactionManager is implemented in Kotlin - so it is by default a final class
 // this is a copy of the "decompiled" version
@@ -170,14 +173,23 @@ public class OpenQuorumTransactionManager extends RawTransactionManager {
         this.privateFor = privateFor;
         this.enclave = enclave;
 
-        try {
-            JsonRpc2_0Web3j q = (JsonRpc2_0Web3j) web3j;
-            Field f = JsonRpc2_0Web3j.class.getDeclaredField("web3jService"); //NoSuchFieldException
-            f.setAccessible(true);
-            this.web3jService = (Web3jService) f.get(q); //IllegalAccessException
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+//        try {
+//            JsonRpc2_0Web3j q = (JsonRpc2_0Web3j) web3j;
+//            Field f = JsonRpc2_0Web3j.class.getDeclaredField("web3jService"); //NoSuchFieldException
+//            f.setAccessible(true);
+//            this.web3jService = (Web3jService) f.get(q); //IllegalAccessException
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+        Optional<Web3jService> web3jService = Objects.requireNonNull(Context.getNetworkProperty())
+            .getNodes()
+            .values()
+            .stream()
+            .filter(n -> Objects.equals(web3j, Context.getConnectionFactory().getConnection(n)))
+            .map(n -> Context.getConnectionFactory().getWeb3jService(n))
+            .findFirst();
+
+        this.web3jService = web3jService.get();
     }
 
    public OpenQuorumTransactionManager(Quorum web3j, Credentials credentials, String publicKey, List privateFor, Enclave enclave) {

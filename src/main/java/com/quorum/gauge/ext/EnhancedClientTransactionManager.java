@@ -19,9 +19,9 @@
 
 package com.quorum.gauge.ext;
 
+import com.quorum.gauge.common.Context;
 import com.quorum.gauge.common.PrivacyFlag;
 import org.web3j.protocol.Web3jService;
-import org.web3j.protocol.core.JsonRpc2_0Web3j;
 import org.web3j.protocol.core.methods.response.EthGetTransactionReceipt;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
@@ -31,9 +31,8 @@ import org.web3j.quorum.methods.request.PrivateTransaction;
 import org.web3j.quorum.tx.ClientTransactionManager;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.math.BigInteger;
-import java.util.List;
+import java.util.*;
 
 import static com.quorum.gauge.services.AbstractService.DEFAULT_MAX_RETRY;
 import static com.quorum.gauge.services.AbstractService.DEFAULT_SLEEP_DURATION_IN_MILLIS;
@@ -50,21 +49,31 @@ public class EnhancedClientTransactionManager extends ClientTransactionManager {
 
     private Quorum quorum;
 
-    private Web3jService web3j;
+    private Web3jService web3jService;
 
     public EnhancedClientTransactionManager(Quorum quorum, String fromAddress, String privateFrom, List<String> privateFor, List<PrivacyFlag> contractFlag, int attempts, int sleepDuration) {
         super(quorum, fromAddress, privateFrom, privateFor, attempts, sleepDuration);
         this.quorum = quorum;
         this.contractFlag = contractFlag;
 
-        try {
-            JsonRpc2_0Web3j q = (JsonRpc2_0Web3j) quorum;
-            Field f = JsonRpc2_0Web3j.class.getDeclaredField("web3jService"); //NoSuchFieldException
-            f.setAccessible(true);
-            this.web3j = (Web3jService) f.get(q); //IllegalAccessException
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Optional<Web3jService> web3jService = Objects.requireNonNull(Context.getNetworkProperty())
+            .getNodes()
+            .values()
+            .stream()
+            .filter(n -> Objects.equals(quorum, Context.getConnectionFactory().getConnection(n)))
+            .map(n -> Context.getConnectionFactory().getWeb3jService(n))
+            .findFirst();
+
+        this.web3jService = web3jService.get();
+
+//        try {
+//            JsonRpc2_0Web3j q = (JsonRpc2_0Web3j) quorum;
+//            Field f = JsonRpc2_0Web3j.class.getDeclaredField("web3jService"); //NoSuchFieldException
+//            f.setAccessible(true);
+//            this.web3j = (Web3jService) f.get(q); //IllegalAccessException
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
     }
 
     public EnhancedClientTransactionManager(Quorum quorum, String fromAddress, String privateFrom, List<String> privateFor, List<PrivacyFlag> contractFlag) {
@@ -90,7 +99,7 @@ public class EnhancedClientTransactionManager extends ClientTransactionManager {
     protected TransactionReceipt executeTransaction(BigInteger gasPrice, BigInteger gasLimit, String to, String data, BigInteger value) throws IOException, TransactionException {
         final TransactionReceipt receipt = super.executeTransaction(gasPrice, gasLimit, to, data, value);
 
-        return QuorumTransactionManagerService.maybeGetPrivateTransactionReceipt(web3j, receipt)
+        return QuorumTransactionManagerService.maybeGetPrivateTransactionReceipt(web3jService, receipt)
             .flatMap(EthGetTransactionReceipt::getTransactionReceipt)
             .orElse(receipt);
     }
@@ -99,7 +108,7 @@ public class EnhancedClientTransactionManager extends ClientTransactionManager {
     protected TransactionReceipt executeTransaction(BigInteger gasPrice, BigInteger gasLimit, String to, String data, BigInteger value, boolean constructor) throws IOException, TransactionException {
         final TransactionReceipt receipt = super.executeTransaction(gasPrice, gasLimit, to, data, value, constructor);
 
-        return QuorumTransactionManagerService.maybeGetPrivateTransactionReceipt(web3j, receipt)
+        return QuorumTransactionManagerService.maybeGetPrivateTransactionReceipt(web3jService, receipt)
             .flatMap(EthGetTransactionReceipt::getTransactionReceipt)
             .orElse(receipt);
     }
