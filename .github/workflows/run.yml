@@ -1,13 +1,5 @@
 name: Run Acceptance Tests on standard networks
 on:
-  schedule:
-    - cron: '0 12 * * *'
-  pull_request:
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-    branches:
-      - '**'
   push:
     paths-ignore:
       - '**.md'

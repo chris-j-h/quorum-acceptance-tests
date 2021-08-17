@@ -111,6 +111,7 @@ public class DockerInfrastructureService
     public Observable<Boolean> startNode(NodeAttributes attributes, ResourceCreationCallback callback) {
         DockerContainerProperty p = infraProperty.getNodes().get(attributes.getNode());
         String quorumImage = "";
+        System.out.println("CHRISSY checking if quorumDockerImageCatalog contains key " + attributes.getQuorumVersionKey() + ": " + quorumDockerImageCatalog.containsKey(attributes.getQuorumVersionKey()));
         if (quorumDockerImageCatalog.containsKey(attributes.getQuorumVersionKey())) {
             QuorumImageConfig quorumImageConfig = quorumDockerImageCatalog.get(attributes.getQuorumVersionKey());
             attributes.withAdditionalGethArgs(attributes.getAdditionalGethArgsBuilder().overrideWith(quorumImageConfig.getArgBuilder()));
