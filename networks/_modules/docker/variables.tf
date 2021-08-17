@@ -3,8 +3,8 @@ variable "network_name" {
 }
 
 variable "additional_geth_args" {
-  default     = ""
-  description = "Additional geth args for all nodes"
+  default     = {}
+  description = "Additional geth args per node"
 }
 
 variable "geth_datadirs" {
@@ -90,6 +90,11 @@ variable "exclude_initial_nodes" {
 variable "consensus" {}
 
 variable "network_id" {}
+
+variable "privacy_marker_transactions" {
+  type        = bool
+  description = "Enable privacy marker transactions on the node"
+}
 
 variable "ethstats_secret" {}
 

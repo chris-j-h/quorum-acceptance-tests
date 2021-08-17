@@ -32,6 +32,7 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -104,6 +105,14 @@ public class PrivateStateValidation extends AbstractSpecImplementation {
     @Step("Contract `C1`(<contractName>)'s `get()` function execution in <node> returns <expectedValue>")
     public void readC1Contract(String contractName, QuorumNode node, int expectedValue) {
         Contract c = mustHaveValue(DataStoreFactory.getSpecDataStore(), contractName, Contract.class);
+
+        // if a transactionHash has been stored then wait until node has executed it
+        // TODO this is a temporary fix for particularly flaky tests where state is being read before it has been
+        // updated - we should probably rework all tests to check that the state is ready before getting
+        Optional<String> transactionHash = Optional.ofNullable(DataStoreFactory.getScenarioDataStore().get("transactionHash"))
+            .map(Object::toString);
+        transactionHash.ifPresent(h -> transactionService.waitForTransactionReceipt(node, h));
+
         int actualValue = nestedContractService.readC1Value(node, c.getContractAddress());
 
         assertThat(actualValue).isEqualTo(expectedValue);
@@ -115,6 +124,19 @@ public class PrivateStateValidation extends AbstractSpecImplementation {
         int actualValue = nestedContractService.readC2Value(node, c.getContractAddress());
 
         assertThat(actualValue).isEqualTo(expectedValue);
+    }
+
+    @Step("Fail to execute contract `C2`(<contractName>)'s `get()` function in <node> with error <error>")
+    public void failGetExecutionContract(String contractName, QuorumNode node, String error) {
+        Contract c = mustHaveValue(DataStoreFactory.getSpecDataStore(), contractName, Contract.class);
+        try {
+            int v = nestedContractService.readC2Value(node, c.getContractAddress());
+        } catch(Exception e) {
+            if (!e.toString().contains(error)) {
+                throw e;
+            }
+            // We're supposed to catch this exception, good to go.
+        }
     }
 
     @Step("Fail to execute <flag> contract `C2`(<contractName>)'s `restoreFromC1()` function in <node> and it's private for <privateFor>")
@@ -227,9 +249,12 @@ public class PrivateStateValidation extends AbstractSpecImplementation {
         TransactionReceipt receipt = nestedContractService.updateC2Contract(
             source,
             Arrays.stream(privateFor.split(",")).map(s -> QuorumNode.valueOf(s)).collect(Collectors.toList()),
-            c.getContractAddress(), newValue,  Arrays.asList(PrivacyFlag.StandardPrivate)).blockingFirst();
+            c.getContractAddress(), newValue, Arrays.asList(PrivacyFlag.StandardPrivate)).blockingFirst();
 
         assertThat(receipt.getTransactionHash()).isNotBlank();
         assertThat(receipt.getBlockNumber()).isNotEqualTo(currentBlockNumber());
+
+        TransactionReceipt receiptPrivateFor = transactionService.waitForTransactionReceipt(QuorumNode.valueOf(privateFor), receipt.getTransactionHash());
+        assertThat(receiptPrivateFor.getBlockNumber()).isNotEqualTo(currentBlockNumber());
     }
 }

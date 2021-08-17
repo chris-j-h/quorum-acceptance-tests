@@ -6,8 +6,20 @@ variable "consensus" {
 
 variable "privacy_enhancements" {
   type        = object({ block = number, enabled = bool })
-  default     = { block = 0, enabled = true }
+  default     = { block = 0, enabled = false }
   description = "privacy enhancements state (enabled/disabled) and the block height at which they are enabled"
+}
+
+variable "privacy_precompile" {
+  type        = object({ block = number, enabled = bool })
+  default     = { enabled = false, block = 0 }
+  description = "Set the privacyPrecompileBlock fork"
+}
+
+variable "privacy_marker_transactions" {
+  type        = bool
+  default     = false
+  description = "Enable privacy marker transactions on the node"
 }
 
 variable "network_name" {
@@ -63,8 +75,8 @@ variable "docker_registry" {
 }
 
 variable "additional_quorum_container_vol" {
-  type = map(list(object({container_path = string, host_path = string})))
-  default = {}
+  type        = map(list(object({ container_path = string, host_path = string })))
+  default     = {}
   description = "Additional volume mounts for geth container. Each map key is the node index (0-based)"
 }
 
@@ -104,5 +116,61 @@ EOT
 
 variable "enable_multitenancy" {
   type = bool
+  description = <<-EOT
+Star geth with --mulitenancy flag
+EOT
   default = false
+}
+
+variable "additional_tessera_config" {
+  default = {}
+  description = <<-EOT
+Merge this config with the default config per node. This will override existing keys
+E.g.: add config to node 1
+{
+  0 = {
+    alwaysSendTo = ["xyz"]
+  }
+}
+EOT
+}
+
+variable "additional_genesis_config" {
+  default = {}
+  description = <<-EOT
+Merge this config with the chain config in the genesis per node. This will override existing keys
+E.g.: enable isMPS for node 1
+{
+  0 = {
+    isMPS = true
+  }
+}
+EOT
+}
+
+variable "override_additional_geth_args" {
+  default = {}
+  description = <<-EOT
+Override the value from var.additional_geth_args per node
+{
+  0 = "--rpcapi admin"
+}
+EOT
+}
+
+# TODO: it's not "override" at the moment. it's more to disable plugins for a node
+variable "override_plugins" {
+  default = {}
+  description = <<-EOT
+Override the value from var.plugins per node
+{
+  0 = {}
+}
+EOT
+}
+
+variable "qbftBlock" {
+  type        = object({ block = number, enabled = bool })
+  default     = { block = 0, enabled = false }
+  description = "qbft fork block (enabled/disabled) and the block height at which it is enabled"
 }

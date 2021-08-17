@@ -10,7 +10,7 @@ There are 2 set of contracts to be used selectively in the below scenarios.
 
 Single smart contract
 ```
-pragma solidity ^0.5.0;
+pragma solidity ^0.5.17;
 
 contract SimpleStorage {
     uint private storedData;
@@ -31,7 +31,7 @@ contract SimpleStorage {
 
 Nested smart contracts
 ```
-pragma solidity ^0.5.0;
+pragma solidity ^0.5.17;
 
 import "./C2.sol";
 
@@ -59,7 +59,7 @@ contract C1 {
     }
 }
 
-pragma solidity ^0.5.0;
+pragma solidity ^0.5.17;
 
 import "./C1.sol";
 
@@ -160,7 +160,7 @@ Transactions, regardless if it succeeds or not, sent by non-party node must not 
 * Contract `C1`("parentContractC1_14")'s `get()` function execution in "Node2" returns "0"
 * Contract `C2`("childContractC2_12")'s `get()` function execution in "Node1" returns "30"
 * Contract `C2`("childContractC2_12")'s `get()` function execution in "Node4" returns "0"
-* Contract `C2`("childContractC2_12")'s `get()` function execution in "Node2" returns "0"
+* Fail to execute contract `C2`("childContractC2_12")'s `get()` function in "Node2" with error "execution reverted"
 
 ## Privacy is maintained when a transaction to a contract creating another contract then in turn referencing its creator
 

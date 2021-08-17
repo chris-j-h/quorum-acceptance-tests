@@ -22,10 +22,7 @@ package com.quorum.gauge.services;
 import com.quorum.gauge.common.QuorumNetworkProperty;
 import com.quorum.gauge.common.QuorumNode;
 import com.quorum.gauge.common.RetryWithDelay;
-import com.quorum.gauge.ext.EthGetQuorumPayload;
-import com.quorum.gauge.ext.EthSignTransaction;
-import com.quorum.gauge.ext.ExtendedPrivateTransaction;
-import com.quorum.gauge.ext.StringResponse;
+import com.quorum.gauge.ext.*;
 import io.reactivex.Observable;
 import io.reactivex.schedulers.Schedulers;
 import org.slf4j.Logger;
@@ -34,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.datatypes.Function;
+import org.web3j.abi.datatypes.Type;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.DefaultBlockParameterName;
@@ -43,6 +41,7 @@ import org.web3j.protocol.core.methods.request.Transaction;
 import org.web3j.protocol.core.methods.response.*;
 import org.web3j.quorum.Quorum;
 import org.web3j.quorum.methods.request.PrivateTransaction;
+import org.web3j.quorum.methods.response.PrivatePayload;
 import org.web3j.tx.Contract;
 
 import java.io.IOException;
@@ -80,13 +79,30 @@ public class TransactionService extends AbstractService {
     }
 
     public Observable<EthGetTransactionReceipt> getTransactionReceipt(QuorumNode node, String transactionHash) {
-        Quorum client = connectionFactory().getConnection(node);
-        return client.ethGetTransactionReceipt(transactionHash).flowable().toObservable();
+        return getTransactionReceipt(networkProperty().getNode(node.name()), transactionHash);
     }
 
     public Observable<EthGetTransactionReceipt> getTransactionReceipt(QuorumNetworkProperty.Node node, String transactionHash) {
         Quorum client = connectionFactory().getConnection(node);
-        return client.ethGetTransactionReceipt(transactionHash).flowable().toObservable();
+        return client.ethGetTransactionReceipt(transactionHash)
+            .flowable()
+            .toObservable()
+            .flatMap(r -> Observable.just(
+                // for PMTs: so that we don't have to duplicate all private tx tests for PMTs, we fetch the internal
+                // private tx receipt which can be used to get the contract address etc.
+                maybeGetPrivateTransactionReceipt(node, r).orElse(r)
+            ));
+    }
+
+    private Optional<EthGetTransactionReceipt> maybeGetPrivateTransactionReceipt(QuorumNetworkProperty.Node node, EthGetTransactionReceipt publicReceiptResponse) {
+        if (publicReceiptResponse.getTransactionReceipt().isEmpty()) {
+            return Optional.empty();
+        }
+
+        return QuorumTransactionManagerService.maybeGetPrivateTransactionReceipt(
+            connectionFactory().getWeb3jService(node),
+            publicReceiptResponse.getTransactionReceipt().get()
+        );
     }
 
     public Optional<TransactionReceipt> pollTransactionReceipt(QuorumNetworkProperty.Node node, String transactionHash) {
@@ -272,6 +288,12 @@ public class TransactionService extends AbstractService {
             });
     }
 
+    // Delegate for eth_getQuorumPayload
+    public Observable<PrivatePayload> getQuorumPayload(QuorumNode node, String encryptedPayloadHash) {
+        Quorum client = connectionFactory().getConnection(node);
+        return client.quorumGetPrivatePayload(encryptedPayloadHash).flowable().toObservable();
+    }
+
     // Invoking eth_getLogs
     public Observable<EthLog> getLogsUsingFilter(QuorumNode node, String contractAddress) {
         Web3j client = connectionFactory().getWeb3jConnection(node);
@@ -299,7 +321,8 @@ public class TransactionService extends AbstractService {
             });
     }
 
-    public Observable<EthEstimateGas> estimateGasForPublicContract(QuorumNetworkProperty.Node from, Contract c) {
+    // encodedData is the encoded smart contract binary + the encoded parameter list
+    public Observable<EthEstimateGas> estimateGasForPublicContract(QuorumNetworkProperty.Node from, String encodedData) {
         Web3j client = connectionFactory().getWeb3jConnection(from);
         String fromAddress;
         try {
@@ -309,17 +332,17 @@ public class TransactionService extends AbstractService {
             throw new RuntimeException(e);
         }
 
-        String data = c.getContractBinary();
         Transaction tx = Transaction.createContractTransaction(fromAddress,
             null, // TODO ricardolyn: should we really not send nonce?
             BigInteger.ZERO,
             DEFAULT_GAS_LIMIT,
             BigInteger.ZERO,
-            data);
+            encodedData);
         return client.ethEstimateGas(tx).flowable().toObservable();
     }
 
-    public Observable<EthEstimateGas> estimateGasForPrivateContract(QuorumNode from, QuorumNode privateFor, Contract c) {
+    // encodedData is the encoded smart contract binary + the encoded parameter list
+    public Observable<EthEstimateGas> estimateGasForPrivateContract(QuorumNode from, QuorumNode privateFor, String encodedData) {
         Web3j client = connectionFactory().getWeb3jConnection(from);
         String fromAddress;
         try {
@@ -329,7 +352,7 @@ public class TransactionService extends AbstractService {
             throw new RuntimeException(e);
         }
 
-        String data = c.getContractBinary();
+        String encodedConstructor = FunctionEncoder.encodeConstructor(Arrays.<Type>asList(new org.web3j.abi.datatypes.generated.Uint256(0)));
         return client.ethGetTransactionCount(fromAddress, DefaultBlockParameterName.LATEST)
             .flowable().toObservable()
             .flatMap(ethGetTransactionCount -> {
@@ -339,7 +362,7 @@ public class TransactionService extends AbstractService {
                     DEFAULT_GAS_LIMIT,
                     null,
                     BigInteger.ZERO,
-                    data,
+                    encodedData,
                     null,
                     Arrays.asList(privacyService.id(privateFor))
                 );

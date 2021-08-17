@@ -23,7 +23,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quorum.gauge.common.PrivacyFlag;
 import com.quorum.gauge.common.QuorumNode;
+import com.quorum.gauge.common.RawDeployedContractTarget;
 import com.quorum.gauge.common.RetryWithDelay;
+import com.quorum.gauge.common.config.WalletData;
 import com.quorum.gauge.core.AbstractSpecImplementation;
 import com.quorum.gauge.ext.EthGetQuorumPayload;
 import com.quorum.gauge.services.AbstractService;
@@ -37,6 +39,7 @@ import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 import org.bouncycastle.util.encoders.Hex;
+import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -79,6 +82,7 @@ public class PrivateSmartContract extends AbstractSpecImplementation {
 
         DataStoreFactory.getSpecDataStore().put(contractName, contract);
         DataStoreFactory.getScenarioDataStore().put(contractName, contract);
+        DataStoreFactory.getScenarioDataStore().put("transactionHash", contract.getTransactionReceipt().get().getTransactionHash());
     }
 
     @Step("Deploying a <privacyFlags> simple smart contract with initial value <initialValue> in <source>'s default account and it's private for <target> fails with message <failureMessage>")
@@ -129,6 +133,22 @@ public class PrivateSmartContract extends AbstractSpecImplementation {
         assertThat(receipt.get().getFrom()).isEqualTo(senderAddr);
     }
 
+    @Step("Transaction Receipt is present in <node> for <txReference>")
+    public void verifyTransactionReceipt(QuorumNode node, String txReference) {
+        String transactionHash = mustHaveValue(DataStoreFactory.getScenarioDataStore(), txReference, String.class);
+        Optional<TransactionReceipt> receipt = transactionService.getTransactionReceipt(node, transactionHash)
+            .map(ethGetTransactionReceipt -> {
+                if (ethGetTransactionReceipt.getTransactionReceipt().isPresent()) {
+                    return ethGetTransactionReceipt;
+                } else {
+                    throw new RuntimeException("retry");
+                }
+            }).retryWhen(new RetryWithDelay(20, 3000))
+            .blockingFirst().getTransactionReceipt();
+
+        assertThat(receipt.isPresent()).isTrue();
+    }
+
     @Step("<contractName> stored in <source> and <target> must have the same storage root")
     public void verifyStorageRoot(String contractName, QuorumNode source, QuorumNode target) {
         Contract c = mustHaveValue(DataStoreFactory.getSpecDataStore(), contractName, Contract.class);
@@ -169,14 +189,14 @@ public class PrivateSmartContract extends AbstractSpecImplementation {
     }
 
     @Step("Execute <contractName>'s `set()` function with privacy type <flag> to set new value to <newValue> in <source> and it's private for <target>")
-    public void updateNewValue(String contractName, String flag, int newValue, QuorumNode source, QuorumNode target) {
+    public TransactionReceipt updateNewValue(String contractName, String flag, int newValue, QuorumNode source, QuorumNode target) {
         Contract c = mustHaveValue(DataStoreFactory.getSpecDataStore(), contractName, Contract.class);
         TransactionReceipt receipt = contractService.updateSimpleContract(source, target, c.getContractAddress(), newValue, Arrays.stream(flag.split(",")).map(PrivacyFlag::valueOf).collect(Collectors.toList())).blockingFirst();
 
         assertThat(receipt.getTransactionHash()).isNotBlank();
         assertThat(receipt.getBlockNumber()).isNotEqualTo(currentBlockNumber());
 
-        transactionService.waitForTransactionReceipt(target, receipt.getTransactionHash());
+        return transactionService.waitForTransactionReceipt(target, receipt.getTransactionHash());
     }
 
     @Step("Execute <contractName>'s `set()` function with new value <newValue> in <source> and it's private for <target>")
@@ -184,13 +204,18 @@ public class PrivateSmartContract extends AbstractSpecImplementation {
         updateNewValue(contractName, PrivacyFlag.StandardPrivate.name(), newValue, source, target);
     }
 
+    @Step("Execute <contractName>'s `set()` function with new value <newValue> in <source> and it's private for <target>, store transaction hash as <txRef>")
+    public void updateNewValue(String contractName, int newValue, QuorumNode source, QuorumNode target, String txRef) {
+        TransactionReceipt r = updateNewValue(contractName, PrivacyFlag.StandardPrivate.name(), newValue, source, target);
+        DataStoreFactory.getScenarioDataStore().put(txRef, r.getTransactionHash());
+    }
 
     @Step("Deploy <count> private smart contracts between a default account in <source> and a default account in <target>")
     public void createMultiple(int count, QuorumNode source, QuorumNode target) {
         int arbitraryValue = 10;
         List<Observable<? extends Contract>> allObservableContracts = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            allObservableContracts.add(contractService.createSimpleContract(arbitraryValue, source, target).subscribeOn(Schedulers.io()));
+            allObservableContracts.add(contractService.createSimpleContract(arbitraryValue, source, target));
         }
         List<Contract> contracts = Observable.zip(allObservableContracts, args -> {
             List<Contract> tmp = new ArrayList<>();
@@ -354,8 +379,7 @@ public class PrivateSmartContract extends AbstractSpecImplementation {
         Scheduler scheduler = threadLocalDelegateScheduler(count);
         List<Observable<TransactionReceipt>> observables = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            observables.add(contractService.updateClientReceiptPrivate(source, target, c.getContractAddress(), BigInteger.ZERO)
-                .subscribeOn(scheduler));
+            observables.add(contractService.updateClientReceiptPrivate(source, target, c.getContractAddress(), BigInteger.ZERO));
         }
         List<TransactionReceipt> receipts = Observable.zip(observables, objects -> Observable.fromArray(objects).map(o -> (TransactionReceipt) o).toList().blockingGet()).blockingFirst();
 
@@ -371,7 +395,7 @@ public class PrivateSmartContract extends AbstractSpecImplementation {
             QuorumNode source = mustHaveValue(DataStoreFactory.getScenarioDataStore(), cName + "_source", QuorumNode.class);
             QuorumNode target = mustHaveValue(DataStoreFactory.getScenarioDataStore(), cName + "_target", QuorumNode.class);
             for (int i = 0; i < count; i++) {
-                observables.add(contractService.updateClientReceiptPrivate(source, target, c.getContractAddress(), BigInteger.ZERO).subscribeOn(Schedulers.io()));
+                observables.add(contractService.updateClientReceiptPrivate(source, target, c.getContractAddress(), BigInteger.ZERO));
             }
         }
         List<TransactionReceipt> receipts = Observable.zip(observables, objects -> Observable.fromArray(objects).map(o -> (TransactionReceipt) o).toList().blockingGet()).blockingFirst();
@@ -400,10 +424,39 @@ public class PrivateSmartContract extends AbstractSpecImplementation {
         for (QuorumNode targetNode : targetNodes) {
             for (int i = 0; i < count; i++) {
                 int arbitraryValue = new Random().nextInt(50) + 1;
-                allObservableContracts.add(contractService.createSimpleContract(arbitraryValue, source, targetNode).subscribeOn(Schedulers.io()));
+                allObservableContracts.add(contractService.createSimpleContract(arbitraryValue, source, targetNode));
             }
         }
         BigInteger blockNumber = Observable.zip(allObservableContracts, args -> utilService.getCurrentBlockNumber().blockingFirst()).blockingFirst().getBlockNumber();
         assertThat(blockNumber).isNotEqualTo(currentBlockNumber());
+    }
+
+    @Step("Send <count> simple private raw smart contracts from wallet <wallet> in <source> and it's separately private for <targets> and saved under <store>")
+    public void sendRawPrivateSmartContracts(int count, WalletData wallet, QuorumNode source, String targets, String store) {
+        String[] target = targets.split(",");
+        QuorumNode[] targetNodes = new QuorumNode[target.length];
+        for (int i = 0; i < targetNodes.length; i++) {
+            targetNodes[i] = QuorumNode.valueOf(target[i]);
+        }
+
+        try {
+            List deployedContracts = Observable.zip(
+                rawContractService.createNRawSimplePrivateContract(count, wallet, source, targetNodes),
+                (a) -> a
+            ).collectInto(new ArrayList<>(), (objects, deployedContract) -> objects.addAll(Arrays.asList(deployedContract))).subscribeOn(Schedulers.io()).blockingGet();
+            DataStoreFactory.getScenarioDataStore().put(store, deployedContracts);
+        } catch (Exception e) {
+            Assert.fail(e.getMessage());
+        }
+    }
+
+    @Step("Verify the stored data <store> into the store to have the right value")
+    public void verifyStoredData(String store) {
+        List<RawDeployedContractTarget> deployedContracts = (List<RawDeployedContractTarget>) mustHaveValue(DataStoreFactory.getScenarioDataStore(), store, List.class);
+
+        deployedContracts.forEach(o -> {
+            int value = contractService.readSimpleContractValue(o.target, o.receipt.getContractAddress());
+            assertThat(value).isEqualTo(o.value);
+        });
     }
 }
