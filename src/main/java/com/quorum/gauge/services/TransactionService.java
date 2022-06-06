@@ -352,6 +352,9 @@ public class TransactionService extends AbstractService {
             throw new RuntimeException(e);
         }
 
+        logger.info("CHRISSY fromAddress={}", fromAddress);
+        System.out.println("CHRISSY fromAddress=" + fromAddress);
+
         String encodedConstructor = FunctionEncoder.encodeConstructor(Arrays.<Type>asList(new org.web3j.abi.datatypes.generated.Uint256(0)));
         return client.ethGetTransactionCount(fromAddress, DefaultBlockParameterName.LATEST)
             .flowable().toObservable()
