@@ -198,8 +198,8 @@ jobs:
               echo "TF_VAR_docker_registry=[{name=\"docker.pkg.github.com\", username=\"${{ github.repository_owner }}\", password=\"${{ github.token }}\"}]" >> $dockerEnvFile
             fi
           fi
-          echo "TF_VAR_quorum_docker_image={name=\"chounsom/quorum:vuln-fixes\", local=\"true\"}" >> $dockerEnvFile
-          docker pull chounsom/quorum:vuln-fixes       
+          echo "TF_VAR_quorum_docker_image={name=\"chounsom/quorum:panics\", local=\"true\"}" >> $dockerEnvFile
+          docker pull chounsom/quorum:panics       
           echo "::set-output name=tag::$tagKey"
           echo "::set-output name=mvnArg::$mvnArg"
           echo "::set-output name=dockerEnv::$dockerEnv"
