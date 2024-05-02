@@ -232,12 +232,12 @@ jobs:
             has_tessera_docker_image=$(docker pull $tessera_docker_image >/dev/null 2>&1; echo $?)
             echo "$quorum_docker_image: $has_quorum_docker_image"
             echo "$tessera_docker_image: $has_tessera_docker_image"
-            #   if [ $has_quorum_docker_image -eq 0 ]; then
-            #     echo "::warning ::Using $quorum_docker_image"
-            #     echo "TF_VAR_quorum_docker_image={name=\"$quorum_docker_image\", local=$local_image}" >> $dockerEnvFile
-            #     docker pull quorumengineering/quorum:develop
-            #     docker pull quorumengineering/quorum:latest
-            #   fi
+            if [ $has_quorum_docker_image -eq 0 ]; then
+              echo "::warning ::Using $quorum_docker_image"
+              echo "TF_VAR_quorum_docker_image={name=\"$quorum_docker_image\", local=$local_image}" >> $dockerEnvFile
+              docker pull quorumengineering/quorum:develop
+              docker pull quorumengineering/quorum:latest
+            fi
             if [ $has_tessera_docker_image -eq 0 ]; then
               echo "::warning ::Using $tessera_docker_image"
               echo "TF_VAR_tessera_docker_image={name=\"$tessera_docker_image\", local=$local_image}" >> $dockerEnvFile
@@ -248,8 +248,6 @@ jobs:
               echo "TF_VAR_docker_registry=[{name=\"docker.pkg.github.com\", username=\"${{ github.repository_owner }}\", password=\"${{ github.token }}\"}]" >> $dockerEnvFile
             fi
           fi
-          echo "TF_VAR_quorum_docker_image={name=\"chounsom/quorum:vuln-fixes\", local=\"true\"}" >> $dockerEnvFile
-          docker pull chounsom/quorum:vuln-fixes   
           echo "TF_VAR_privacy_enhancements={block=0, enabled=${{ matrix.privacy-enhancements}}}" >> $dockerEnvFile
           echo "TF_VAR_privacy_precompile={block=0, enabled=${{ matrix.privacy-precompile}}}" >> $dockerEnvFile
           echo "TF_VAR_privacy_marker_transactions=${{ matrix.privacy-marker-transactions}}" >> $dockerEnvFile
