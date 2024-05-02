@@ -151,7 +151,7 @@ jobs:
         with:
           path: ${{ needs.docker-build.outputs.output_dir }}
           key: ${{ github.sha }}
-      - name: 'Prepare environment'
+      - name: 'Prepare environment.'
         id: setup
         run: |
           tar xfvz ${{ needs.docker-build.outputs.output_file }}
