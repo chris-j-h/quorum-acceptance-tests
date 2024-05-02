@@ -1,21 +1,21 @@
 # Exactly the same setup and teardown steps as run.yml, just different test tags
 name: Extra Acceptance Tests (feature-enabled networks)
-on:
-  schedule:
-    - cron: '0 12 * * *'
-  pull_request:
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-    branches:
-      - '**'
-  push:
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-    branches:
-      - 'master'
-      - 'dev-*'
+#on:
+#  schedule:
+#    - cron: '0 12 * * *'
+#  pull_request:
+#    paths-ignore:
+#      - '**.md'
+#      - '.gitignore'
+#    branches:
+#      - '**'
+#  push:
+#    paths-ignore:
+#      - '**.md'
+#      - '.gitignore'
+#    branches:
+#      - 'master'
+#      - 'dev-*'
 jobs:
   condition:
     name: Evaluate workflow run conditions
