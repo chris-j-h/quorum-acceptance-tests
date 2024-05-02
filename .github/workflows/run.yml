@@ -196,9 +196,9 @@ jobs:
               docker pull quorumengineering/tessera:develop
               docker pull quorumengineering/tessera:latest
             fi
-            if [ $has_quorum_docker_image -eq 0 ] || [ $has_tessera_docker_image -eq 0 ]; then
-              echo "TF_VAR_docker_registry=[{name=\"docker.pkg.github.com\", username=\"${{ github.repository_owner }}\", password=\"${{ github.token }}\"}]" >> $dockerEnvFile
-            fi
+            # if [ $has_quorum_docker_image -eq 0 ] || [ $has_tessera_docker_image -eq 0 ]; then
+            #   echo "TF_VAR_docker_registry=[{name=\"docker.pkg.github.com\", username=\"${{ github.repository_owner }}\", password=\"${{ github.token }}\"}]" >> $dockerEnvFile
+            # fi
           fi
           cat $dockerEnvFile
           echo "::set-output name=tag::$tagKey"
