@@ -28,7 +28,6 @@ import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
-import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
 import com.google.common.collect.ImmutableMap;
@@ -113,15 +112,11 @@ public class DockerInfrastructureService
     @Override
     public Observable<Boolean> startNode(NodeAttributes attributes, ResourceCreationCallback callback) {
         DockerContainerProperty p = infraProperty.getNodes().get(attributes.getNode());
-        logger.info("CHRISSY NodeAttributes: node={} additionalArgs={} quorumVersion={} dockerImage={}", attributes.getNode(), attributes.getAdditionalGethArgs(), attributes.getQuorumVersionKey(), p.getQuorumContainerId());
         String quorumImage = "";
         if (quorumDockerImageCatalog.containsKey(attributes.getQuorumVersionKey())) {
-            logger.info("CHRISSY has docker image in catalogue");
             QuorumImageConfig quorumImageConfig = quorumDockerImageCatalog.get(attributes.getQuorumVersionKey());
             attributes.withAdditionalGethArgs(attributes.getAdditionalGethArgsBuilder().overrideWith(quorumImageConfig.getArgBuilder()));
             quorumImage = quorumImageConfig.getImage();
-        } else {
-            logger.info("CHRISSY does not have docker image in catalogue");
         }
         String tesseraImage = tesseraDockerImageCatalog.getOrDefault(attributes.getTesseraVersionKey(), "");
         return Observable.zip(
@@ -351,35 +346,31 @@ public class DockerInfrastructureService
             .map(id -> {
                 for (int i = 1; i <= 30; i++) {
                     BasicContainerState state = new BasicContainerState(dockerClient.inspectContainerCmd(id).exec());
-//                    logger.info("Waiting attempt {} for container {}({}), status = {}, health = {}, id={}", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12), state.getStatus(), state.getHealthStatus(), id);
+                    logger.debug("Waiting attempt {} for container {}({}), status = {}, health = {}", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12), state.getStatus(), state.getHealthStatus());
                     if (state.isDead()) {
-
-                        try {
-                            dockerClient.logContainerCmd(id)
-                                .withStdOut(true)
-                                .withStdErr(true)
-                                .withTimestamps(true)
-                                .exec(new LogContainerResultCallback() {
-                                    @Override
-                                    public void onNext(Frame item) {
-                                        logger.info("CHRISSY LOG {}", item.toString());
-                                    }
-                                }).awaitCompletion();
-                        } catch (InterruptedException e) {
-                            logger.error("CHRISSY Interrupted Exception!" + e.getMessage());
-                        };
-
-                        logger.info("Waiting attempt {} for container {}({}): isDead=true", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12));
+//                        try {
+//                            dockerClient.logContainerCmd(id)
+//                                .withStdOut(true)
+//                                .withStdErr(true)
+//                                .withTimestamps(true)
+//                                .exec(new LogContainerResultCallback() {
+//                                    @Override
+//                                    public void onNext(Frame item) {
+//                                        logger.info("LOG {}", item.toString());
+//                                    }
+//                                }).awaitCompletion();
+//                        } catch (InterruptedException e) {
+//                            logger.error("Interrupted Exception!" + e.getMessage());
+//                        };
+//
+//                        logger.info("Waiting attempt {} for container {}({}): isDead=true", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12));
                         return false;
                     } else if (!state.isOnGoing()) {
-//                        logger.info("Waiting attempt {} for container {}({}): isOngoing=false, id={}", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12), id);
                         return true;
                     } else {
-//                        logger.info("Waiting attempt {} for container {}({}): sleeping, id={}", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12), id);
                         Thread.sleep(3000);
                     }
                 }
-                logger.info("Returning false, id={}", id);
                 return false;
             });
     }
@@ -447,7 +438,6 @@ public class DockerInfrastructureService
                 if (StringUtils.isBlank(image)) {
                     containerImage = res.getConfig().getImage();
                 }
-//                logger.info("CHRISSY containerImageName={} entrypoint={}", containerImage, res.getConfig().getEntrypoint());
                 Map<String, String> labels = res.getConfig().getLabels();
                 labels.put("ClonedFromContainerId", templateContainerId);
                 labels.put("ClonedFromContainerName", res.getName());
@@ -465,12 +455,10 @@ public class DockerInfrastructureService
                     .withLabels(labels)
                     .exec();
                 String newContainerId = cRes.getId();
-//                logger.debug("Created container {}", StringUtils.substring(newContainerId, 0, 12));
-//                logger.info("Created container {}", StringUtils.substring(newContainerId, 0, 12));
+                logger.debug("Created container {}", StringUtils.substring(newContainerId, 0, 12));
                 dockerClient.startContainerCmd(newContainerId).exec();
                 callback.onCreate(newContainerId);
-//                logger.debug("Started container {}", StringUtils.substring(newContainerId, 0, 12));
-//                logger.info("Started container {}", StringUtils.substring(newContainerId, 0, 12));
+                logger.debug("Started container {}", StringUtils.substring(newContainerId, 0, 12));
                 return newContainerId;
             })
             .map(id -> this.wait(id).blockingFirst())

@@ -78,8 +78,9 @@ if [ -f /data/qdata/cleanStorage ]; then
   rm -rf ${local.container_besu_datadir}
 fi
 
-echo "CHRISSY besu version=$(/opt/besu/bin/besu --version)"
+echo "besu version=$(/opt/besu/bin/besu --version)"
 
+set -x
 exec /opt/besu/bin/besu \
         --config-file=${local.container_besu_datadir}/config.toml \
         --p2p-host=${var.besu_networking[count.index].ip.private} \

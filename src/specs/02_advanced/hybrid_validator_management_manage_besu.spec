@@ -50,7 +50,3 @@ Nodes in a network can send proposal to remove a node from validator set
 * Record the current block number, named it as "blockHeightAfterContractsAreMinted"
 * Wait for node "Node1" to catch up to "blockHeightAfterContractsAreMinted"
 * "Node1" is not able to seal new blocks
-
-//___
-//* Sleep to allow for debugging
-

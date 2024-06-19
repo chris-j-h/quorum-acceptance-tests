@@ -62,7 +62,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.quorum.gauge.sol.SimpleStorage.FUNC_GET;
@@ -138,15 +141,12 @@ public class ContractService extends AbstractService {
         }
 
         return accountService.getAccountAddress(networkProperty().getNode(source.name()), ethAccount).flatMap(address -> {
-            String uuid = UUID.randomUUID().toString();
-
             ClientTransactionManager clientTransactionManager = new PrivateClientTransactionManager(
                 client,
                 address,
                 null,
                 privateFor,
                 privacyFlag);
-            logger.info("deploying simpleStorage contract ({}): from={} privateFor=[{}]", uuid, address, privateFor == null ? "" : String.join(",", privateFor));
             return SimpleStorage.deploy(client,
                 clientTransactionManager,
                 BigInteger.valueOf(0),
