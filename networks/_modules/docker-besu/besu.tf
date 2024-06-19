@@ -78,6 +78,8 @@ if [ -f /data/qdata/cleanStorage ]; then
   rm -rf ${local.container_besu_datadir}
 fi
 
+echo "CHRISSY besu version=$(/opt/besu/bin/besu --version)"
+
 exec /opt/besu/bin/besu \
         --config-file=${local.container_besu_datadir}/config.toml \
         --p2p-host=${var.besu_networking[count.index].ip.private} \
@@ -88,14 +90,13 @@ exec /opt/besu/bin/besu \
         --min-gas-price=0 \
         --privacy-url="${local.container_tm_q2t_urls[count.index]}" \
         --privacy-public-key-file=${local.container_besu_datadir}/tmkey.pub \
-        --privacy-onchain-groups-enabled=false \
-        --tx-pool-limit-by-account-percentage=0.5 \
+        --rpc-http-enabled=true \
 %{if var.hybrid_network~}
-        --rpc-http-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,GOQUORUM,QBFT \
-        --rpc-ws-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,GOQUORUM,QBFT ;
+        --rpc-http-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,QBFT,TXPOOL \
+        --rpc-ws-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,QBFT,TXPOOL ;
 %{else~}
-        --rpc-http-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,GOQUORUM,IBFT \
-        --rpc-ws-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,GOQUORUM,IBFT ;
+        --rpc-http-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,IBFT,TXPOOL \
+        --rpc-ws-api=ADMIN,EEA,WEB3,ETH,MINER,NET,PRIV,PERM,IBFT,TXPOOL ;
 %{endif~}
 EOF
   }

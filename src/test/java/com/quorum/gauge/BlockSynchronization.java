@@ -53,6 +53,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.allOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Service
@@ -72,7 +73,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
     public void startNetwork(String networkType, String permissionVersion, String id, List<Node> nodes) {
         startQuorumNetwork(networkType, id, nodes, null, permissionVersion);
         BigInteger blockNumber = utilService.getCurrentBlockNumber().blockingFirst().getBlockNumber();
-        logger.debug("network started blockNumber:{}", blockNumber);
+        logger.info("network started blockNumber:{}", blockNumber);
     }
 
     @Step("Start a <networkType> Quorum Network, named it <id>, consisting of <nodes> with <gcmode> `gcmode`")
@@ -89,7 +90,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
                 assertThat(ok).as("Node must start successfully").isTrue();
             }).doOnComplete(() -> {
                 Duration gracePeriod = networkProperty.getConsensusGracePeriod();
-                logger.debug("Waiting {}s for network to be up completely...", gracePeriod.toSeconds());
+                logger.info("Waiting {}s for network to be up completely...", gracePeriod.toSeconds());
                 Thread.sleep(gracePeriod.toMillis());
             }).blockingSubscribe();
         } finally {
@@ -101,8 +102,10 @@ public class BlockSynchronization extends AbstractSpecImplementation {
 
     @Step("Send some transactions to create blocks in network <id> and capture the latest block height as <latestBlockHeightName>")
     public void sendSomeTransactions(String id, String latestBlockHeightName) {
+        logger.info("CHRISSY starting 'send some transactions' step");
         List<Node> nodes = (List<Node>) mustHaveValue(DataStoreFactory.getScenarioDataStore(), "nodes_" + id, List.class);
-        sendSomeTransactionFromNodes(nodes, latestBlockHeightName, 5, 20);
+        List<Node> besuNode = List.of(nodes.get(nodes.size()-1));
+        sendSomeTransactionFromNodes(besuNode, latestBlockHeightName, 5, 1);
     }
 
     @Step("Send some transactions to create blocks in network <id> from <nodes> and capture the latest block height as <latestBlockHeightName>")
@@ -112,25 +115,27 @@ public class BlockSynchronization extends AbstractSpecImplementation {
 
     public void sendSomeTransactionFromNodes(List<Node> nodes, String latestBlockHeightName, int threadsPerNode, int txCount) {
         int txCountPerNode = (int) Math.round(Math.ceil((double) txCount / nodes.size()));
+        logger.info("CHRISSY latestBlockHeightName={} threadsPerNode={} txCount={} txCountPerNode={}", latestBlockHeightName, threadsPerNode, txCount, txCountPerNode);
         if (txCountPerNode < threadsPerNode) {
             threadsPerNode = txCountPerNode;
         }
         List<Observable<?>> parallelSender = new ArrayList<>();
         // fire 5 public and 5 private txs
         for (Node n : nodes) {
+            logger.info("CHRISSY sending txs from node {}", n.getName());
             parallelSender.add(sendTxs(n, txCountPerNode, threadsPerNode, null));
-            parallelSender.add(sendTxs(n, txCountPerNode, threadsPerNode, randomNode(nodes, n)));
+//            parallelSender.add(sendTxs(n, txCountPerNode, threadsPerNode, randomNode(nodes, n)));
         }
         Observable.zip(parallelSender, oks -> true).doOnComplete(() -> {
             BigInteger currentBlockNumber = utilService.getCurrentBlockNumber().blockingFirst().getBlockNumber();
-            logger.debug("Current block number = {}", currentBlockNumber);
+            logger.info("Current block number = {}", currentBlockNumber);
             DataStoreFactory.getScenarioDataStore().put(latestBlockHeightName, currentBlockNumber);
         }).blockingSubscribe();
     }
 
 
     private Observable<? extends Contract> sendTxs(Node n, int txCountPerNode, int threadsPerNode, Node target) {
-        return Observable.range(0, txCountPerNode).doOnNext(c -> logger.debug("Sending tx {} to {}", c, n)).flatMap(v -> Observable.just(v).flatMap(num -> contractService.createSimpleContract(40, n, target)), threadsPerNode);
+        return Observable.range(0, txCountPerNode).doOnNext(c -> logger.info("Sending tx {} to {}", c, n)).flatMap(v -> Observable.just(v).flatMap(num -> contractService.createSimpleContract(40, n, target)), threadsPerNode);
     }
 
     private Node randomNode(List<Node> nodes, Node n) {
@@ -157,9 +162,9 @@ public class BlockSynchronization extends AbstractSpecImplementation {
         Response.Error err1 = Optional.ofNullable(nodeAddressRes.getError()).orElse(new Response.Error());
         assertThat(err1.getMessage()).as("istanbul.nodeAddress must succeed").isBlank();
         String nodeAddr = nodeAddressRes.getResult();
-        logger.debug("node {} node address: {}", targetNode.getName(), nodeAddr);
+        logger.info("node {} node address: {}", targetNode.getName(), nodeAddr);
         nodes.stream().forEach(n -> {
-            logger.debug("istanbul.propose targetNode:{} fromNode:{} vote:{} nodeAddr:{}", targetNode.getName(), n.getName(), vote, nodeAddr);
+            logger.info("istanbul.propose targetNode:{} fromNode:{} vote:{} nodeAddr:{}", targetNode.getName(), n.getName(), vote, nodeAddr);
             istanbulService.propose(n, nodeAddr, vote).doOnNext(res -> {
                 Response.Error err2 = Optional.ofNullable(res.getError()).orElse(new Response.Error());
                 assertThat(err2.getMessage()).as("istanbul.propose must succeed").isBlank();
@@ -196,9 +201,9 @@ public class BlockSynchronization extends AbstractSpecImplementation {
 
         // update static-nodes.json and permissioned-nodes.json from all the nodes
         // including the new node we just started
-        Observable.fromIterable(networkResources.allResourceIds()).filter(containerId -> infraService.isGeth(containerId).blockingFirst()).doOnNext(gethContainerId -> logger.debug("Modifying files in container {}", StringUtils.substring(gethContainerId, 0, 12))).flatMap(gethContainerId -> infraService.modifyFile(gethContainerId, "/data/qdata/static-nodes.json", InfrastructureService.JSONListModifier.with(newNode.getEnodeUrl()))).flatMap(gethContainerId -> infraService.modifyFile(gethContainerId, "/data/qdata/permissioned-nodes.json", InfrastructureService.JSONListModifier.with(newNode.getEnodeUrl()))).retryUntil(() -> {
+        Observable.fromIterable(networkResources.allResourceIds()).filter(containerId -> infraService.isGeth(containerId).blockingFirst()).doOnNext(gethContainerId -> logger.info("Modifying files in container {}", StringUtils.substring(gethContainerId, 0, 12))).flatMap(gethContainerId -> infraService.modifyFile(gethContainerId, "/data/qdata/static-nodes.json", InfrastructureService.JSONListModifier.with(newNode.getEnodeUrl()))).flatMap(gethContainerId -> infraService.modifyFile(gethContainerId, "/data/qdata/permissioned-nodes.json", InfrastructureService.JSONListModifier.with(newNode.getEnodeUrl()))).retryUntil(() -> {
             var currentBlockHeight = utilService.getCurrentBlockNumberFrom(newNode).blockingFirst().getBlockNumber();
-            logger.debug(newNode + " currentBlockHeight is " + currentBlockHeight);
+            logger.info(newNode + " currentBlockHeight is " + currentBlockHeight);
             return currentBlockHeight.compareTo(BigInteger.ONE) > 0;
         }).blockingSubscribe();
     }
@@ -242,14 +247,14 @@ public class BlockSynchronization extends AbstractSpecImplementation {
     @Step("Record the current block number in <node>, named it as <name>")
     public void recordCurrentBlockNumber(QuorumNode node, String name) {
         BigInteger currentBlockNumber = utilService.getCurrentBlockNumberFrom(node).blockingFirst().getBlockNumber();
-        logger.debug("Current block number = {}", currentBlockNumber);
+        logger.info("Current block number = {}", currentBlockNumber);
         DataStoreFactory.getScenarioDataStore().put(name, currentBlockNumber);
     }
 
     @Step("Check if we are able to get the block number <number> from <node>")
     public void getBlockNumberFromNode(int number, QuorumNode node) {
         EthBlock.Block block = utilService.getBlockByNumber(node, number).blockingFirst().getBlock();
-        logger.debug("Block = {}", block);
+        logger.info("Block = {}", block);
         assertThat(block).isNotNull();
     }
 
@@ -275,7 +280,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
                 e.printStackTrace();
             }
             currentBlockHeight = utilService.getCurrentBlockNumberFrom(node).blockingFirst().getBlockNumber();
-            logger.debug("Current block number on host {} is {}", node.getName(), currentBlockHeight);
+            logger.info("Current block number on host {} is {}", node.getName(), currentBlockHeight);
             i++;
             assertThat(i).isLessThanOrEqualTo(MAX_COUNT);
         }
@@ -295,7 +300,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
                 e.printStackTrace();
             }
             currentBlockHeight = utilService.getCurrentBlockNumber().blockingFirst().getBlockNumber();
-            logger.debug("Current block number is {}", currentBlockHeight);
+            logger.info("Current block number is {}", currentBlockHeight);
             i++;
             assertThat(i).isLessThanOrEqualTo(MAX_COUNT);
         }
@@ -339,7 +344,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
 
         utilService.waitForNodesToReach(networkProperty.getConsensusBlockHeight(), nodes);
 
-        logger.debug("started all nodes");
+        logger.info("started all nodes");
     }
 
     @Step("Verify block heights in all nodes are greater or equals to <blockHeightName> in the network <id>")
@@ -370,7 +375,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
         assertThat(networkResources.get(nodeName.getName())).as(nodeName.getName() + " started").isNotNull();
         // sometimes istanbul/raft take long time to sync
         Duration longerDuration = Duration.ofSeconds(networkProperty.getConsensusGracePeriod().getSeconds() * 2);
-        logger.debug("Grepping '{}' in the log stream for {}s ...", expectedLogMsg, longerDuration.getSeconds());
+        logger.info("Grepping '{}' in the log stream for {}s ...", expectedLogMsg, longerDuration.getSeconds());
         Boolean found = Observable.fromIterable(networkResources.get(nodeName.getName())).filter(id -> infraService.isGeth(id).blockingFirst()).flatMap(id -> infraService.grepLog(id, expectedLogMsg, longerDuration.getSeconds(), TimeUnit.SECONDS)).blockingFirst();
 
         assertThat(found).as(expectedLogMsg).isTrue();
@@ -394,7 +399,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
         assertThat(networkResources.get(nodeName.getName())).as(nodeName.getName() + " started").isNotNull();
         // sometimes istanbul/raft take long time to sync
         Duration longerDuration = Duration.ofSeconds(networkProperty.getConsensusGracePeriod().getSeconds() * 2);
-        logger.debug("Grepping '{}' in the log stream for {}s ...", expectedLogMsg, longerDuration.getSeconds());
+        logger.info("Grepping '{}' in the log stream for {}s ...", expectedLogMsg, longerDuration.getSeconds());
         Boolean found = Observable.fromIterable(networkResources.get(nodeName.getName())).filter(id -> infraService.isBesu(id).blockingFirst()).flatMap(id -> infraService.grepLog(id, expectedLogMsg, longerDuration.getSeconds(), TimeUnit.SECONDS)).blockingFirst();
 
         if (logsPresent) {
@@ -430,7 +435,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
             assertThat(ok).as("Node must be stopped").isTrue();
         }).doOnComplete(() -> {
             Duration duration = Duration.ofSeconds(5);
-            logger.debug("Waiting {}s for node {} to be stopped completely...", duration.toSeconds(), nodeName.getName());
+            logger.info("Waiting {}s for node {} to be stopped completely...", duration.toSeconds(), nodeName.getName());
             Thread.sleep(duration.toMillis());
         }).blockingSubscribe();
     }
@@ -491,7 +496,7 @@ public class BlockSynchronization extends AbstractSpecImplementation {
 
             utilService.waitForNodesToReach(networkProperty.getConsensusBlockHeight(), nodes.toArray(Node[]::new));
 
-            logger.debug("Start Network finished");
+            logger.info("Start Network finished");
         } finally {
             DataStoreFactory.getScenarioDataStore().put("networkResources", networkResources);
         }
@@ -502,5 +507,14 @@ public class BlockSynchronization extends AbstractSpecImplementation {
     @Step("Add <Node4> and join the network <mynetwork> as <nonvalidator>")
     public void addNode(Node newNode, String id, NodeType nodeType) {
         addNewNode(null, newNode, id, nodeType);
+    }
+
+    @Step("Sleep to allow for debugging")
+    public void sleep() throws InterruptedException {
+        final int mins = 30;
+        logger.info("CHRISSY sleeping for {} minutes...", mins);
+        TimeUnit.MINUTES.sleep(mins);
+        logger.info("CHRISSY waking up");
+
     }
 }
