@@ -50,7 +50,7 @@ resource "docker_container" "ethsigner" {
     "-c",
     <<RUN
 echo "EthSigner${count.index + 1}"
-
+set -x
 /opt/ethsigner/bin/ethsigner \
   --chain-id=${var.chainId} \
   --http-listen-host=0.0.0.0 \

@@ -55,7 +55,7 @@
 
         <!-- plugins -->
         <gauge-maven-plugin.version>1.5.0</gauge-maven-plugin.version>
-        <web3j-maven-plugin.version>4.8.7</web3j-maven-plugin.version>
+        <web3j-maven-plugin.version>4.11.3</web3j-maven-plugin.version>
         <builder-maven-plugin.version>3.0.0</builder-maven-plugin.version>
         <maven-site-plugin.version>3.7.1</maven-site-plugin.version>
         <maven-project-info-reports-plugin.version>3.0.0</maven-project-info-reports-plugin.version>

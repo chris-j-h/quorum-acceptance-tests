@@ -77,6 +77,11 @@ public class ContractExtension extends AbstractSpecImplementation {
 
         final String contractAddress = transactionReceipt.get().getContractAddress();
 
+        // check extension management contract is available on target node
+        final Optional<TransactionReceipt> newNodeTransactionReceipt = transactionService.pollTransactionReceipt(newNode, transactionHash);
+        assertThat(newNodeTransactionReceipt.isPresent()).isTrue();
+        assertThat(newNodeTransactionReceipt.get().getStatus()).isEqualTo("0x1");
+
         DataStoreFactory.getScenarioDataStore().put(contractName + "extensionAddress", contractAddress);
 
         Thread.sleep(1000);
@@ -239,7 +244,7 @@ public class ContractExtension extends AbstractSpecImplementation {
             .blockingFirst();
 
         if(result.getError() != null) {
-            logger.error(result.getError().toString());
+            logger.error("unable to extend contract, err: msg=" + result.getError().getMessage() + ", data=" + result.getError().getData() + ", code=" + result.getError().getCode());
         }
 
         assertThat(result.getError()).isNull();

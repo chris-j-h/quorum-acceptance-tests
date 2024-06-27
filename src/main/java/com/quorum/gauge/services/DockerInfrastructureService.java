@@ -348,6 +348,22 @@ public class DockerInfrastructureService
                     BasicContainerState state = new BasicContainerState(dockerClient.inspectContainerCmd(id).exec());
                     logger.debug("Waiting attempt {} for container {}({}), status = {}, health = {}", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12), state.getStatus(), state.getHealthStatus());
                     if (state.isDead()) {
+//                        try {
+//                            dockerClient.logContainerCmd(id)
+//                                .withStdOut(true)
+//                                .withStdErr(true)
+//                                .withTimestamps(true)
+//                                .exec(new LogContainerResultCallback() {
+//                                    @Override
+//                                    public void onNext(Frame item) {
+//                                        logger.info("LOG {}", item.toString());
+//                                    }
+//                                }).awaitCompletion();
+//                        } catch (InterruptedException e) {
+//                            logger.error("Interrupted Exception!" + e.getMessage());
+//                        };
+//
+//                        logger.info("Waiting attempt {} for container {}({}): isDead=true", i, state.getContainerName(), StringUtils.substring(state.getContainerId(), 0, 12));
                         return false;
                     } else if (!state.isOnGoing()) {
                         return true;
